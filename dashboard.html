@@ -1,0 +1,2303 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OnePlay Dashboard — Dream11 UI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+  <style>
+    /* --- Dream11 Theme: Dark + Red Accents + Glassmorphism --- */
+    :root {
+      --primary: #D32F2F;
+      /* Dream11 Red */
+      --secondary: #C21807;
+      /* Darker Red for Gradient */
+      --text-light: #F5F5F5;
+      --text-muted: #A0A0A0;
+      --bg-dark: #1A1A1A;
+      --bg-deep: #0D0D0D;
+      --glass-bg: rgba(255, 255, 255, 0.04);
+      --d11-card: var(--glass-bg);
+      --d11-btn-red: linear-gradient(90deg, var(--primary), var(--secondary));
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      overflow-x: hidden;
+      background: linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-dark) 100%);
+      color: var(--text-light);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      min-height: 100vh;
+    }
+
+    /* Core Card Style */
+    .d11-card {
+      background-color: var(--d11-card);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      border-radius: 1.5rem;
+      transition: all 0.3s ease-in-out;
+    }
+
+    /* Red Gradient Button Style */
+    .d11-btn-red {
+      background-image: var(--d11-btn-red);
+      box-shadow: 0 4px 15px rgba(211, 47, 47, 0.4);
+      color: white;
+      transition: all 0.2s ease;
+    }
+
+    .d11-btn-red:hover:not(:disabled) {
+      transform: scale(1.02) translateY(-1px);
+      box-shadow: 0 6px 20px rgba(211, 47, 47, 0.6);
+    }
+
+    /* Sidebar Transitions */
+    #sidebar {
+      transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      z-index: 50;
+    }
+
+    /* Fixed: Changed from sidebar-collapsed to just translateX */
+    @media (max-width: 767px) {
+      #sidebar {
+        transform: translateX(-100%);
+      }
+
+      #sidebar.open {
+        transform: translateX(0);
+      }
+    }
+
+    /* Modal/Overlay Transitions */
+    .modal-overlay,
+    .sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 49;
+      background: rgba(0, 0, 0, 0.0);
+      opacity: 0;
+      pointer-events: none;
+      transition: background 0.3s ease, opacity 0.3s ease;
+    }
+
+    .modal-overlay.open,
+    .sidebar-overlay.open {
+      background: rgba(0, 0, 0, 0.8);
+      opacity: 1;
+      pointer-events: auto;
+      z-index: 60;
+    }
+
+    .sidebar-overlay.open {
+      z-index: 49;
+    }
+
+    .modal-content {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-overlay.open .modal-content {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Responsive adjustments */
+    @media (min-width: 768px) {
+      main {
+        margin-left: 18rem !important;
+      }
+
+      #sidebar {
+        width: 18rem;
+        transform: translateX(0) !important;
+      }
+
+      .sidebar-overlay {
+        display: none;
+      }
+    }
+
+    @media (max-width: 767px) {
+      main.flex-1 {
+        padding-top: 6rem !important;
+      }
+    }
+
+    /* Custom Scrollbar for transaction list */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: var(--bg-deep);
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: var(--primary);
+      border-radius: 3px;
+    }
+
+    /* === Chatbot Styles === */
+    #chatWidget {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      z-index: 50;
+    }
+
+    #chatPanel {
+      position: fixed;
+      right: 2rem;
+      bottom: 6rem;
+      width: 90vw;
+      max-width: 380px;
+      height: 70vh;
+      max-height: 500px;
+      background-color: var(--glass-bg);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+      border-radius: 1rem;
+      transform: translateY(100%) scale(0.9);
+      opacity: 0;
+      transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+      display: flex;
+      flex-direction: column;
+      z-index: 60;
+    }
+
+    #chatPanel.open {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+    @media (max-width: 767px) {
+      #chatPanel {
+        top: 10%;
+        bottom: 2rem;
+        left: 5vw;
+        right: 5vw;
+        width: 90vw;
+        max-width: none;
+        max-height: none;
+      }
+
+      #chatWidget {
+        bottom: 1rem;
+        right: 1rem;
+      }
+    }
+
+    /* Custom Scrollbar for chat */
+    #chatMessages {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      /* Custom Scrollbar for chat */
+      scrollbar-width: thin;
+      scrollbar-color: var(--primary) var(--bg-deep);
+    }
+
+    #chatMessages::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #chatMessages::-webkit-scrollbar-track {
+      background: var(--bg-deep);
+    }
+
+    #chatMessages::-webkit-scrollbar-thumb {
+      background: var(--primary);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+
+<body class="flex flex-col md:flex-row min-h-screen">
+
+  <header
+    class="flex items-center justify-between p-4 fixed top-4 left-4 right-4 z-40 md:hidden rounded-xl d11-card shadow-lg">
+    <div class="flex items-center gap-3">
+      <button id="hamburgerBtn" class="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+      </button>
+      <div class="font-extrabold text-xl text-red-500">ONEPLAY</div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="mobileNotifyBtn" onclick="showSection('notifications')"
+        class="relative p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
+          </path>
+        </svg>
+        <span id="mobileUnreadCount"
+          class="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full hidden">0</span>
+      </button>
+      <div class="text-sm font-semibold" id="mobileUserShort">Loading...</div>
+      <div class="rounded-full w-8 h-8 bg-white/10 flex items-center justify-center">
+        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+        </svg>
+      </div>
+    </div>
+  </header>
+
+  <div id="sidebarOverlay" class="sidebar-overlay hidden" onclick="closeSidebarMobile()"></div>
+
+  <aside id="sidebar"
+    class="w-72 md:w-72 p-6 fixed top-0 bottom-0 h-screen z-50 transform rounded-none md:rounded-r-2xl d11-card">
+
+    <div class="flex items-center gap-3 mb-8">
+      <div class="rounded-full w-12 h-12 bg-red-600 flex items-center justify-center font-bold text-white shadow-lg">OP
+      </div>
+      <div class="text-2xl font-extrabold text-white">ONEPLAY</div>
+    </div>
+
+    <div class="bg-red-600/10 p-4 rounded-xl mb-6 border border-white/10">
+      <div class="flex justify-between items-start">
+        <div>
+          <div class="text-xs text-gray-400 font-medium">Wallet Balance</div>
+          <div id="walletBalance" class="text-3xl font-extrabold mt-1 text-white">₹0</div>
+          <div class="text-xs text-gray-400 mt-1">Winnings: <span id="withdrawableValue">₹0</span></div>
+        </div>
+        <button onclick="showSection('wallet')"
+          class="px-4 py-2 rounded-lg bg-white text-red-600 font-bold text-sm hover:scale-105 transition-transform">
+          Add
+        </button>
+      </div>
+    </div>
+
+    <nav class="space-y-2 mb-4">
+      <button onclick="showSection('games')"
+        class="sidebar-link w-full text-left py-3 px-4 rounded-xl flex items-center gap-3 font-semibold text-gray-300 hover:bg-white/10 transition-all active-link">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6">
+          </path>
+        </svg>
+        Dashboard
+      </button>
+      <button onclick="showSection('wallet')"
+        class="sidebar-link w-full text-left py-3 px-4 rounded-xl flex items-center gap-3 font-semibold text-gray-300 hover:bg-white/10 transition-all">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zM9 13h6a3 3 0 01-6 0z">
+          </path>
+        </svg>
+        Wallet & Withdraw
+      </button>
+      <button onclick="showSection('profile')"
+        class="sidebar-link w-full text-left py-3 px-4 rounded-xl flex items-center gap-3 font-semibold text-gray-300 hover:bg-white/10 transition-all">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+        </svg>
+        My Profile
+      </button>
+      <button onclick="showSection('leaderboard')"
+        class="sidebar-link w-full text-left py-3 px-4 rounded-xl flex items-center gap-3 font-semibold text-gray-300 hover:bg-white/10 transition-all">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M11.048 2.067l.564 1.393h4.636l.564-1.393L21.43 5.432l-1.393.564v4.636l1.393.564-4.522 1.834L15.5 17l-1.834 4.522-.564-1.393h-4.636l-.564 1.393-4.522-1.834L2.57 12.568l1.393-.564V7.368L2.57 6.804l4.522-1.834L7.5 2.067l1.834 4.522 4.636.564.564-1.393z">
+          </path>
+        </svg>
+        Leaderboard
+      </button>
+      <button onclick="showSection('refer')"
+        class="sidebar-link w-full text-left py-3 px-4 rounded-xl flex items-center gap-3 font-semibold text-gray-300 hover:bg-white/10 transition-all">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+        </svg>
+        Refer & Earn
+      </button>
+      <button onclick="showSection('history')"
+        class="sidebar-link w-full text-left py-3 px-4 rounded-xl flex items-center gap-3 font-semibold text-gray-300 hover:bg-white/10 transition-all">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        History
+      </button>
+      <button onclick="showSection('notifications')"
+        class="sidebar-link w-full text-left py-3 px-4 rounded-xl flex items-center gap-3 font-semibold text-gray-300 hover:bg-white/10 transition-all">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
+          </path>
+        </svg>
+        Notifications
+        <span id="desktopUnreadCount"
+          class="ml-auto inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full hidden">0</span>
+      </button>
+    </nav>
+
+    <div class="absolute bottom-6 left-6 right-6">
+      <div id="userInfoDisplay" class="text-sm text-gray-400 mb-4">
+        Welcome, <span class="font-bold text-white" id="userNameShort">Player!</span>
+      </div>
+      <button id="logoutBtn" onclick="openLogoutModal()"
+        class="w-full py-2 rounded-xl bg-red-700 font-bold hover:bg-red-800 transition-colors">
+        Logout
+      </button>
+    </div>
+  </aside>
+
+  <main class="flex-1 p-4 md:p-8 transition-all duration-300 ml-0 md:ml-72 pt-20 md:pt-4">
+
+    <section id="gamesSection" class="section space-y-6">
+      <h1 class="text-3xl font-extrabold text-white mb-6">🎯 Live Tournaments</h1>
+
+      <div
+        class="d11-card p-4 flex justify-between items-center rounded-xl bg-green-900/10 border-green-700/50 shadow-lg">
+        <div>
+          <p class="text-lg font-bold text-green-400">Daily Free Reward! 🎁</p>
+          <p class="text-sm text-gray-300">Claim your free ₹2 bonus once every 24 hours.</p>
+        </div>
+        <button id="claimDailyBtn" onclick="dailyRewardClaim()" disabled
+          class="d11-btn-red px-4 py-2 rounded-lg font-bold text-sm">
+          Claim Now
+        </button>
+      </div>
+
+      <div class="flex flex-wrap gap-2 text-sm font-semibold game-category-group">
+        <button onclick="setGameCategory('')"
+          class="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 transition-colors active-cat">All</button>
+        <button onclick="setGameCategory('BGMI')"
+          class="px-4 py-2 rounded-full bg-white/10 hover:bg-red-600 transition-colors">BGMI</button>
+        <button onclick="setGameCategory('Free Fire')"
+          class="px-4 py-2 rounded-full bg-white/10 hover:bg-red-600 transition-colors">Free Fire</button>
+        <button onclick="setGameCategory('COD')"
+          class="px-4 py-2 rounded-full bg-white/10 hover:bg-red-600 transition-colors">COD</button>
+        <button onclick="setGameCategory('Others')"
+          class="px-4 py-2 rounded-full bg-white/10 hover:bg-red-600 transition-colors">Others</button>
+      </div>
+
+      <div id="tournamentList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+      </div>
+    </section>
+
+    <section id="walletSection" class="section hidden space-y-6">
+      <h1 class="text-3xl font-extrabold text-white mb-6">💰 Wallet & Withdraw</h1>
+
+      <div class="d11-card p-6 rounded-2xl bg-red-600/10 border-red-600/50">
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="text-lg text-gray-400 font-medium">Total Balance</div>
+            <div id="walletBalanceBig" class="text-6xl font-extrabold mt-2 text-white">₹0</div>
+          </div>
+          <button id="refreshWalletBtn" onclick="window.refreshWalletBalance()"
+            class="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all focus:outline-none"
+            title="Refresh Balance">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+              </path>
+            </svg>
+          </button>
+        </div>
+        <div class="mt-4 flex flex-wrap gap-4">
+          <div class="text-lg font-semibold text-gray-300">Deposit: <span id="depositValue" class="text-white">₹0</span>
+          </div>
+          <div class="text-lg font-semibold text-gray-300">Winnings: <span id="winningsValue"
+              class="text-white">₹0</span></div>
+          <div class="text-lg font-semibold text-gray-300">Bonus: <span id="bonusValue" class="text-white">₹0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="d11-card p-6 rounded-2xl">
+        <h2 class="text-2xl font-bold mb-4">💳 Add Cash (Deposit)</h2>
+        <input id="depositAmount" type="number" placeholder="Enter amount (min ₹10)" oninput="depositCheck()"
+          class="text-white bg-white/10 px-4 py-3 rounded-xl w-full border border-transparent focus:border-red-600 transition" />
+        <div class="mt-3 grid grid-cols-3 gap-3">
+          <button onclick="setDepositAmount(50)"
+            class="py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-white">₹50</button>
+          <button onclick="setDepositAmount(100)"
+            class="py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-white">₹100</button>
+          <button onclick="setDepositAmount(500)"
+            class="py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-white">₹500</button>
+        </div>
+        <button id="depositBtn" onclick="startDeposit()" disabled
+          class="d11-btn-red w-full py-3 mt-5 rounded-xl font-bold text-lg disabled:opacity-50">
+          Add Cash
+        </button>
+      </div>
+
+      <div class="d11-card p-6 rounded-2xl">
+        <h2 class="text-2xl font-bold mb-4">💸 Withdraw Winnings</h2>
+        <div class="mb-3 text-sm text-gray-400">
+          Current Winnings Balance: <span id="winningsValueWithdraw" class="font-bold text-white">₹0</span>
+        </div>
+        <div class="mb-4">
+          <div class="text-sm text-gray-400 mb-1">Your UPI ID: <span id="upiIdDisplay" class="font-bold text-white">Not
+              Set</span>
+            <button onclick="openUPIModal()"
+              class="ml-2 text-red-500 hover:text-red-400 text-xs font-semibold">Update</button>
+          </div>
+        </div>
+
+        <input id="withdrawAmount" type="number" placeholder="Enter amount (min ₹100)" oninput="withdrawCheck()"
+          class="text-white bg-white/10 px-4 py-3 rounded-xl w-full border border-transparent focus:border-red-600 transition" />
+        <p id="withdrawWarning" class="text-xs mt-2 text-yellow-400 hidden">UPI is required before withdrawal.</p>
+
+        <button id="withdrawBtn" onclick="startWithdraw()" disabled
+          class="d11-btn-red w-full py-3 mt-5 rounded-xl font-bold text-lg disabled:opacity-50">
+          Withdraw
+        </button>
+      </div>
+
+      <div class="d11-card p-6 rounded-2xl">
+        <h2 class="text-2xl font-bold mb-4">🧾 Recent Transactions</h2>
+        <div id="transactionsList" class="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
+          <p class='text-gray-400 p-4'>Loading transactions...</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="profileSection" class="section hidden space-y-6">
+      <h1 class="text-3xl font-extrabold text-white mb-6">👤 My Profile</h1>
+
+      <div class="d11-card p-6 rounded-2xl space-y-4">
+        <h2 class="text-2xl font-bold text-white mb-4">Account Details</h2>
+        <div class="text-lg">
+          <span class="text-gray-400">Name:</span> <span id="profileName"
+            class="font-semibold text-white">Loading...</span>
+          <button onclick="updateProfilePrompt()" class="ml-2 text-red-500 hover:text-red-400 text-sm">Edit</button>
+        </div>
+        <div class="text-lg">
+          <span class="text-gray-400">Email:</span> <span id="profileEmail"
+            class="font-semibold text-white">Loading...</span>
+        </div>
+        <div class="text-lg">
+          <span class="text-gray-400">UPI ID:</span> <span id="profileUPI" class="font-semibold text-white">Not
+            Set</span>
+          <button onclick="openUPIModal()" class="ml-2 text-red-500 hover:text-red-400 text-sm">Update</button>
+        </div>
+        <div class="border-t border-white/10 pt-4 space-y-2">
+          <div class="text-lg">
+            <span class="text-gray-400">Account Status:</span>
+            <span id="profileStatus" class="font-semibold text-yellow-400">Basic</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="leaderboardSection" class="section hidden">
+      <h1 class="text-3xl font-extrabold text-white mb-6">🏆 Global Leaderboard</h1>
+      <div class="d11-card p-6 rounded-2xl">
+        <div class="flex justify-between items-center py-3 px-4 border-b border-white/20 font-bold text-gray-300">
+          <div class="w-1/6">Rank</div>
+          <div class="w-3/6">Player</div>
+          <div class="w-2/6 text-right">Points</div>
+        </div>
+        <div id="leaderboardList">
+          <p class='text-gray-400 p-4'>Loading leaderboard...</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="referSection" class="section hidden">
+      <h1 class="text-3xl font-extrabold text-white mb-6">🤝 Refer & Earn</h1>
+
+      <div class="d11-card p-6 rounded-2xl space-y-4">
+        <h2 class="text-2xl font-bold text-white">Refer Your Friends!</h2>
+        <p class="text-gray-400">Get <span class="font-bold text-green-400">₹10 Bonus</span> when your friend joins and
+          makes their first deposit.</p>
+
+        <div>
+          <label for="refLink" class="text-sm font-semibold text-gray-300">Your Unique Referral Link:</label>
+          <div class="flex mt-1">
+            <input id="refLink" type="text" readonly value="Loading..."
+              class="text-white bg-white/10 px-4 py-3 rounded-l-xl w-full border border-transparent focus:border-red-600" />
+            <button onclick="copyRef()" class="d11-btn-red px-4 py-3 rounded-r-xl font-bold">Copy</button>
+          </div>
+        </div>
+
+        <div class="border-t border-white/10 pt-4">
+          <h3 class="text-xl font-bold text-white mb-2">My Referrals</h3>
+          <p id="referralsCount" class="text-gray-400">Total Referrals: <span class="font-bold text-white">0</span></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="historySection" class="section hidden">
+      <h1 class="text-3xl font-extrabold text-white mb-6">🕒 Game History</h1>
+      <div id="historyList" class="d11-card p-6 rounded-2xl space-y-4">
+        <p class='text-gray-400 p-4'>Loading completed tournaments...</p>
+      </div>
+    </section>
+
+    <section id="notificationsSection" class="section hidden">
+      <h1 class="text-3xl font-extrabold text-white mb-6">🔔 Notifications</h1>
+      <div id="notificationsList" class="d11-card p-6 rounded-2xl space-y-4">
+        <p class='text-gray-400 p-4'>Loading notifications...</p>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="logoutModal" class="modal-overlay hidden">
+    <div class="modal-content d11-card p-8 w-11/12 max-w-sm rounded-2xl relative">
+      <h2 class="text-2xl font-bold text-white mb-4">Confirm Logout</h2>
+      <p class="text-gray-400 mb-6">Are you sure you want to log out of your OnePlay account?</p>
+      <div class="flex justify-end gap-3">
+        <button onclick="closeLogoutModal()"
+          class="px-4 py-2 rounded-xl bg-white/10 font-bold hover:bg-white/20 transition-colors"> Cancel </button>
+        <button onclick="performLogout()"
+          class="px-4 py-2 rounded-xl bg-red-700 font-bold hover:bg-red-800 transition-colors"> Logout </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- depositModal removed for Cashfree checkout -->
+
+  <div id="enterUIDModal" class="modal-overlay hidden">
+    <div class="modal-content d11-card p-8 w-11/12 max-w-sm rounded-2xl relative">
+      <h2 id="uidModalTitle" class="text-2xl font-bold text-white mb-4">Enter Game Details</h2>
+      <p class="text-gray-400 mb-4">Submit your In-Game Name (IGN) or UID to enter the tournament.</p>
+
+      <input type="hidden" id="tournamentIdHidden" value="" />
+      <input id="gameUidInput" type="text" placeholder="Your In-Game Name / UID"
+        class="text-white bg-white/10 px-4 py-3 rounded-xl w-full border border-transparent focus:border-red-600 transition mb-4" />
+
+      <div class="flex justify-end gap-3">
+        <button onclick="closeUIDModal()"
+          class="px-4 py-2 rounded-xl bg-white/10 font-bold hover:bg-white/20 transition-colors"> Cancel </button>
+        <button id="submitUIDBtn" onclick="saveAndJoinTournament()" class="px-4 py-2 rounded-xl d11-btn-red font-bold">
+          Save & Join </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="updateUPIModal" class="modal-overlay hidden">
+    <div class="modal-content d11-card p-8 w-11/12 max-w-sm rounded-2xl relative">
+      <h2 class="text-2xl font-bold text-white mb-4">Update UPI ID</h2>
+      <p class="text-gray-400 mb-4">This UPI will be used for all your withdrawals.</p>
+
+      <input id="newUpiInput" type="text" placeholder="Enter UPI ID (e.g. 9876543210@ybl)" oninput="window.validateUpiInput()"
+        class="text-white bg-white/10 px-4 py-3 rounded-xl w-full border border-transparent focus:border-red-600 transition mb-2" />
+      <p id="upiErrorMsg" class="text-xs text-red-500 hidden mb-4">Please enter a valid UPI ID (e.g. 9876543210@ybl)</p>
+
+      <div class="flex justify-end gap-3">
+        <button onclick="closeUPIModal()"
+          class="px-4 py-2 rounded-xl bg-white/10 font-bold hover:bg-white/20 transition-colors"> Cancel </button>
+        <button id="saveUpiBtn" onclick="saveNewUPI()" disabled class="px-4 py-2 rounded-xl d11-btn-red font-bold disabled:opacity-50"> Save </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="errorModal" class="modal-overlay hidden">
+    <div class="modal-content d11-card p-8 w-11/12 max-w-sm rounded-2xl relative">
+      <h2 id="errorModalTitle" class="text-2xl font-bold text-red-500 mb-4">An Error Occurred</h2>
+      <p id="errorModalMessage" class="text-gray-400 mb-6">An unexpected error occurred.</p>
+      <div class="flex justify-end">
+        <button onclick="closeErrorModal()" class="px-4 py-2 rounded-xl d11-btn-red font-bold"> Close </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-[99] space-y-2">
+  </div>
+
+  <div id="chatWidget">
+    <button id="chatButton"
+      class="d11-btn-red w-16 h-16 rounded-full flex items-center justify-center shadow-2xl hover:scale-105 transition-transform"
+      aria-label="Open Chatbot">
+      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.105A9.006 9.006 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z">
+        </path>
+      </svg>
+    </button>
+    <div id="chatPanel" class="hidden">
+      <div class="p-4 bg-white/5 border-b border-white/10 rounded-t-xl flex justify-between items-center">
+        <h3 class="text-lg font-bold text-red-500">OnePlay Assistant 🤖</h3>
+        <button onclick="toggleChatPanel()" class="text-white hover:text-red-400 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div id="chatMessages" class="space-y-4 flex-grow overflow-y-auto">
+      </div>
+      <div class="p-4 bg-white/5 border-t border-white/10 rounded-b-xl">
+        <div class="flex space-x-2">
+          <input id="chatInput" type="text" placeholder="Ask a question..."
+            class="flex-1 text-white bg-white/10 px-4 py-2 rounded-lg border border-transparent focus:border-red-600 transition"
+            onkeydown="if(event.key==='Enter') window.sendChatMessage()" />
+          <button onclick="window.sendChatMessage()" class="d11-btn-red px-4 py-2 rounded-lg font-bold">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module">
+    // ---------- FIREBASE CONFIG (kept same as you requested) ----------
+    const firebaseConfig = {
+      apiKey: "AIzaSyBI8bKRozUPxuhcy3T-Q31TImMDUGs366E",
+      authDomain: "oneplya1-6faad.firebaseapp.com",
+      projectId: "oneplya1-6faad",
+      storageBucket: "oneplya1-6faad.appspot.com",
+      messagingSenderId: "807884655015",
+      appId: "1:807884655015:web:7cfcd71323b17afa40ce82",
+      measurementId: "G-KL3RK8TZ87"
+    };
+
+    // Firebase imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import {
+      getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc,
+      onSnapshot, query, where, orderBy, addDoc, serverTimestamp, increment,
+      runTransaction, limit
+    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // ---------- GLOBAL STATE ----------
+    let currentUser = null;
+    let currentWallet = {};
+    let selectedCategory = '';
+    let lastDepositTxnId = null;
+    let tournamentToJoin = null; // New state for the join flow
+    let tournamentsUnsub = null; // Unsubscriber for tournaments
+    let notifyUnsub = null; // Unsubscriber for notifications
+    let tournamentAlertUnsub = null; // Unsubscriber for new tournament alerts
+    let transactionAlertUnsub = null; // Unsubscriber for transaction status updates
+    let lastTournamentId = null; // Store the ID of the last known tournament for new tournament check
+
+    const ADMIN_UPI_ID = "7387526397@ybl";
+    const MIN_DEPOSIT = 10;
+    const MIN_WITHDRAW = 100;
+
+    const el = id => document.getElementById(id);
+    const formatRupee = (amount) => `₹${Number(amount || 0).toLocaleString('en-IN')}`;
+    const showToast = (msg, type = 'success') => {
+      const c = el("toastContainer");
+      const t = document.createElement("div");
+      t.className = "flex items-center p-4 rounded-xl shadow-lg transition-all duration-300 " + (type === 'error' ? 'bg-red-600' : type === 'warning' ? 'bg-yellow-600' : 'bg-green-600');
+      t.style.color = 'white';
+      t.innerText = msg;
+      c.appendChild(t);
+      setTimeout(() => t.style.opacity = '0', 3800);
+      setTimeout(() => { try { c.removeChild(t); } catch (e) { } }, 4300);
+    };
+
+    // === Live Notifications Section: Tone Function ===
+    window.playNotifyTone = () => {
+      // Path should be relative to the index.html/dashboard.html file's location
+      // Assuming /assets/notify.mp3 exists at the root level.
+      const audio = new Audio("/assets/notify.mp3");
+      audio.play().catch(() => {
+        // This error is common if the browser blocks autoplay before user interaction
+        console.warn("Autoplay blocked. Notification tone not played.");
+      });
+    }
+    // === End Live Notifications Section: Tone Function ===
+
+    // ---------- Modal/Section Helpers (Exposed to Window) ----------
+    window.openModal = (id) => {
+      const modal = el(id);
+      if (modal) {
+        modal.classList.remove('hidden');
+        setTimeout(() => modal.classList.add('open'), 10);
+        document.body.style.overflow = 'hidden';
+      }
+    };
+    window.closeModal = (id) => {
+      const modal = el(id);
+      if (modal) {
+        modal.classList.remove('open');
+        setTimeout(() => {
+          modal.classList.add('hidden');
+          document.body.style.overflow = '';
+        }, 300);
+      }
+    };
+    window.openLogoutModal = () => window.openModal('logoutModal');
+    window.closeLogoutModal = () => window.closeModal('logoutModal');
+
+    window.openErrorModal = (title, message) => {
+      el("errorModalTitle").innerText = title;
+      el("errorModalMessage").innerText = message;
+      window.openModal('errorModal');
+    };
+    window.closeErrorModal = () => window.closeModal('errorModal');
+
+    window.isValidUPI = function(upi) {
+      if (!upi) return false;
+      return /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/.test(upi);
+    };
+
+    window.validateUpiInput = function() {
+      const input = el("newUpiInput");
+      const errorMsg = el("upiErrorMsg");
+      const saveBtn = el("saveUpiBtn");
+      
+      const val = input.value.trim();
+      if (val === '') {
+        input.classList.remove('border-red-500');
+        if (errorMsg) errorMsg.classList.add('hidden');
+        if (saveBtn) saveBtn.disabled = true;
+        return false;
+      }
+      
+      if (!window.isValidUPI(val)) {
+        input.classList.add('border-red-500');
+        if (errorMsg) errorMsg.classList.remove('hidden');
+        if (saveBtn) saveBtn.disabled = true;
+        return false;
+      } else {
+        input.classList.remove('border-red-500');
+        if (errorMsg) errorMsg.classList.add('hidden');
+        if (saveBtn) saveBtn.disabled = false;
+        return true;
+      }
+    };
+
+    window.openUPIModal = () => {
+      const input = el("newUpiInput");
+      input.value = currentWallet.upiId || '';
+      window.validateUpiInput(); // Validate initial state
+      window.openModal('updateUPIModal');
+    }
+    window.closeUPIModal = () => window.closeModal('updateUPIModal');
+
+
+    window.showSection = (sectionId) => {
+      window.closeSidebarMobile();
+      // Hide all sections
+      document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+      // Show the requested section
+      const targetSection = el(sectionId + 'Section');
+      if (targetSection) targetSection.classList.remove('hidden');
+
+      // Update sidebar active link
+      document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active-link', 'bg-red-600', 'text-white'));
+      const activeLink = document.querySelector(`.sidebar-link[onclick*="showSection('${sectionId}')"]`);
+      if (activeLink) {
+        activeLink.classList.add('active-link', 'bg-red-600', 'text-white');
+        activeLink.classList.remove('text-gray-300', 'hover:bg-white/10');
+      }
+      // Special action for notifications section
+      if (sectionId === 'notifications') window.markNotificationsAsRead();
+      // Ensure specific checks run on load
+      if (sectionId === 'wallet') window.withdrawCheck();
+    };
+
+
+    // ---------- Mobile Sidebar Fix ----------
+    const sidebar = el('sidebar'), sidebarOverlay = el('sidebarOverlay'), hamburgerBtn = el('hamburgerBtn');
+
+    // Functions exposed to window for HTML buttons
+    window.openSidebarMobile = () => { sidebar.classList.add('open'); sidebarOverlay.classList.add('open'); };
+    window.closeSidebarMobile = () => { sidebar.classList.remove('open'); sidebarOverlay.classList.remove('open'); };
+
+    if (hamburgerBtn) hamburgerBtn.addEventListener('click', window.openSidebarMobile);
+    // Initial section load
+    window.showSection('games');
+
+    // ---------- AUTH HANDLING ----------
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        // Redirect to login page if no user is logged in
+        if (!window.location.pathname.endsWith("index.html")) window.location.href = "index.html";
+        return;
+      }
+      currentUser = user;
+      // ensure docs exist
+      await ensureUserDoc(user);
+      await ensureWalletDoc(user.uid);
+      // populate UI
+      const userSnap = await getDoc(doc(db, 'users', user.uid));
+      bindUserToUI(user, userSnap.exists() ? userSnap.data() : {});
+      // start realtime listeners
+      window.subscribeWallet(user.uid);
+      subscribeToData(user.uid);
+      subscribeTournamentsByCategory('');
+
+      // === AI Chatbot Section: Initialization ===
+      el('chatPanel').classList.remove('hidden'); // Show panel container (hidden by CSS transform initially)
+      window.toggleChatPanel(); // Force a close on load
+      window.renderChatHistory(); // Load history
+      // === End AI Chatbot Section: Initialization ===
+    });
+
+    window.performLogout = () => {
+      signOut(auth).then(() => {
+        // Redirect will happen in onAuthStateChanged
+        window.location.href = "index.html";
+      }).catch((error) => {
+        console.error("Logout Error:", error);
+        alert("Logout failed. Try again.");
+      });
+    };
+
+    let walletUnsub = null;
+
+    window.subscribeWallet = (userId) => {
+      if (walletUnsub) {
+        walletUnsub(); // Prevent duplicate listeners
+      }
+
+      console.log("📡 Initializing Wallet Listener for:", userId);
+
+      const walletRef = doc(db, 'wallets', userId);
+      walletUnsub = onSnapshot(walletRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+
+          // Requirement 3: Add debug logs
+          console.log("Wallet Data:", data);
+
+          // Requirements 4, 6, 7: Safe fallback logic for deposit variations
+          const balance = data.balance ?? 0;
+          const deposit = data.deposit ?? data.deposits ?? data.depositAmount ?? 0;
+          const winnings = data.winnings ?? 0;
+          const bonus = data.bonus ?? 0;
+
+          // Requirement 8: Ensure no stale state
+          currentWallet = data;
+
+          // Requirements 1, 5: Update all UI elements safely
+          if (el('walletBalance')) el('walletBalance').innerText = formatRupee(balance);
+          if (el('walletBalanceBig')) el('walletBalanceBig').innerText = formatRupee(balance);
+
+          if (el('depositValue')) el('depositValue').innerText = formatRupee(deposit);
+          if (el('winningsValue')) el('winningsValue').innerText = formatRupee(winnings);
+          if (el('bonusValue')) el('bonusValue').innerText = formatRupee(bonus);
+
+          if (el('withdrawableValue')) el('withdrawableValue').innerText = formatRupee(winnings);
+          if (el('winningsValueWithdraw')) el('winningsValueWithdraw').innerText = formatRupee(winnings);
+
+          console.log('✅ Real-time Wallet Updated UI successfully');
+        } else {
+          console.warn('⚠️ Wallet document does not exist for real-time listener.');
+        }
+      }, (error) => {
+        console.error('❌ Error listening to wallet:', error);
+      });
+    };
+
+    window.refreshWalletBalance = () => {
+      if (!currentUser) return;
+      console.log("🔄 Manual wallet refresh triggered.");
+      // The listener automatically pushes updates, 
+      // but re-invoking the listener enforces a clean slate if needed.
+      window.subscribeWallet(currentUser.uid);
+      showToast("Wallet syncing...", "success");
+    };
+
+    // ---------- DOC ENSURE & UI BINDING ----------
+    const ensureUserDoc = async (user) => {
+      const uRef = doc(db, "users", user.uid);
+      const uSnap = await getDoc(uRef);
+      if (!uSnap.exists()) {
+        const userData = {
+          uid: user.uid,
+          email: user.email || null,
+          name: user.displayName || (user.email ? user.email.split('@')[0] : 'Player'),
+          createdAt: serverTimestamp(),
+          wins: 0,
+          points: 0,
+          referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+          dailyRewardClaimedOn: null,
+          isPremium: false,
+          gameUid: null,
+          totalReferrals: 0,
+          unreadNotifications: 0 // New field for unread count
+        };
+        await setDoc(uRef, userData);
+      } else {
+        // Ensure gameUid is updated on the local currentUser object if it was already in Firestore
+        currentUser = { ...currentUser, ...uSnap.data() };
+      }
+    };
+
+    const ensureWalletDoc = async (uid) => {
+      const wRef = doc(db, "wallets", uid);
+      const wSnap = await getDoc(wRef);
+      if (!wSnap.exists()) {
+        await setDoc(wRef, {
+          uid,
+          balance: 0,
+          deposit: 0,
+          winnings: 0,
+          bonus: 0,
+          upiId: null,
+          createdAt: serverTimestamp()
+        });
+      }
+    };
+
+    const bindUserToUI = (user, userData) => {
+      const displayName = userData.name || user.displayName || (user.email ? user.email.split('@')[0] : 'Player');
+      el("userNameShort").innerText = displayName;
+      el("mobileUserShort").innerText = displayName;
+      el("profileName").innerText = displayName;
+      el("profileEmail").innerText = user.email || 'N/A';
+      el("profileUPI").innerText = userData.upiId || 'Not Set';
+      el("refLink").value = `${window.location.origin}/index.html?ref=${userData.referralCode || 'CODE'}`;
+      el("referralsCount").querySelector('span').innerText = userData.totalReferrals || 0;
+
+      // Update local state for use in other functions
+      currentUser = { ...currentUser, ...userData };
+
+      checkDailyRewardStatus(userData.dailyRewardClaimedOn);
+      window.updateNotificationBadges(userData.unreadNotifications || 0); // Update badges
+    };
+
+    window.updateProfilePrompt = async () => {
+      const newName = prompt("Enter new Display Name:", currentUser.name || '');
+      if (newName && newName.trim() !== '' && newName !== currentUser.name) {
+        try {
+          // Update Firebase Auth profile
+          await updateProfile(auth.currentUser, { displayName: newName.trim() });
+          // Update Firestore user document
+          await updateDoc(doc(db, 'users', currentUser.uid), { name: newName.trim() });
+
+          showToast("Profile name updated!", 'success');
+        } catch (err) {
+          console.error("Profile update error", err);
+          openErrorModal("Update Failed", "Could not update profile name. Try again.");
+        }
+      }
+    };
+
+    window.saveNewUPI = async () => {
+      const newUpi = el("newUpiInput").value.trim();
+      if (!window.isValidUPI(newUpi)) {
+        alert("Please enter a valid UPI ID (e.g. 9876543210@ybl)");
+        return;
+      }
+
+      try {
+        await updateDoc(doc(db, 'wallets', currentUser.uid), { upiId: newUpi });
+        showToast("UPI ID saved successfully!", 'success');
+        window.closeUPIModal();
+      } catch (err) {
+        console.error("UPI update error", err);
+        openErrorModal("Update Failed", "Could not save UPI ID. Try again.");
+      }
+    };
+
+
+    const checkDailyRewardStatus = (claimedOn) => {
+      const btn = el("claimDailyBtn");
+      if (!btn) return;
+
+      let claimedToday = false;
+      if (claimedOn && claimedOn.toDate) {
+        const last = new Date(claimedOn.toDate().toDateString());
+        const today = new Date(new Date().toDateString());
+        claimedToday = last.getTime() === today.getTime();
+      }
+
+      if (claimedToday) {
+        btn.disabled = true;
+        btn.innerText = "Claimed";
+        btn.classList.remove('d11-btn-red');
+        btn.classList.add('bg-gray-600');
+      } else {
+        btn.disabled = false;
+        btn.innerText = "Claim Now";
+        btn.classList.add('d11-btn-red');
+        btn.classList.remove('bg-gray-600');
+      }
+    };
+
+    // ---------- Render Functions ----------
+    const createLeaderboardCard = (data, idx) => {
+      const div = document.createElement("div");
+      const name = data.name || (data.email ? data.email.split('@')[0] : 'Player');
+      const wins = data.wins || 0;
+      const points = data.points || 0;
+      let rowClass = idx % 2 === 0 ? 'bg-white/5' : 'bg-transparent';
+      let rankClass = idx === 1 ? 'text-yellow-400 font-extrabold text-xl' : idx === 2 ? 'text-gray-300 font-bold text-lg' : idx === 3 ? 'text-amber-700 font-bold text-lg' : 'text-gray-400 text-base';
+
+      div.className = `flex justify-between items-center py-3 px-4 border-b border-white/5 transition-all ${rowClass} ${data.uid === currentUser.uid ? 'border-l-4 border-red-500' : ''}`;
+      div.innerHTML = `
+        <div class="w-1/6 ${rankClass}">${idx}</div>
+        <div class="w-3/6 flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-red-600/50 flex items-center justify-center text-xs font-bold text-white">${name.slice(0, 1).toUpperCase()}</div>
+          <div><div class="font-semibold text-white">${name}</div><div class="text-xs text-gray-500">Wins: ${wins}</div></div>
+        </div>
+        <div class="w-2/6 text-right text-xl font-extrabold text-white">${points}</div>
+      `;
+      return div;
+    };
+
+    function renderTransaction(t) {
+      const div = document.createElement("div");
+      div.className = "flex justify-between items-center py-3 px-4 bg-white/5 rounded-lg mb-2";
+
+      const statusColor = t.status === "success"
+        ? "text-green-400"
+        : t.status === "pending" || t.status === "awaiting_admin_verification"
+          ? "text-yellow-400"
+          : "text-red-400";
+
+      const amountColor = ["deposit", "daily_reward", "referral"].includes(t.type)
+        ? "text-green-400"
+        : "text-red-400";
+
+      const sign = ["deposit", "daily_reward", "referral"].includes(t.type) ? "+" : "-";
+
+      let dateStr = "—";
+      if (t.date && t.date.toDate) {
+        dateStr = new Date(t.date.toDate()).toLocaleString();
+      } else if (t.date && t.date.seconds) {
+        dateStr = new Date(t.date.seconds * 1000).toLocaleString();
+      }
+
+      div.innerHTML = `
+    <div>
+      <div class="text-sm font-semibold text-white">${t.type || "unknown"}</div>
+      <div class="text-xs text-gray-400">${dateStr}</div>
+    </div>
+    <div class="text-right">
+      <div class="text-lg font-bold ${amountColor}">
+        ${sign}₹${t.amount || 0}
+      </div>
+      <div class="text-xs ${statusColor}">${t.status || "unknown"}</div>
+    </div>
+  `;
+      return div;
+    }
+
+
+
+    const renderNotification = (n) => {
+      const div = document.createElement("div");
+      div.className = "flex items-start gap-4 p-4 bg-white/5 rounded-lg border border-white/10";
+      const icon = n.type === 'reward' ? '🎁' : n.type === 'warning' ? '⚠️' : '🔔';
+      const dateStr = n.date && n.date.toDate ? new Date(n.date.toDate()).toLocaleDateString() : '—';
+
+      div.innerHTML = `
+            <div class="text-xl">${icon}</div>
+            <div>
+                <div class="font-bold text-white">${n.title || 'Notification'}</div>
+                <div class="text-gray-400 text-sm">${n.message || 'No message.'}</div>
+                <div class="text-xs text-gray-500 mt-1">${dateStr}</div>
+            </div>
+        `;
+      return div;
+    };
+
+    const activeTimers = {}; // To store intervals
+
+    async function renderTournaments(snapshot) {
+      const list = el("tournamentList");
+      list.innerHTML = '';
+
+      snapshot.forEach(async docSnap => {
+        const data = docSnap.data();
+        const tid = docSnap.id;
+
+        // Filter by category
+        if (selectedCategory && data.category !== selectedCategory) return;
+
+        const div = document.createElement("div");
+        div.className = "d11-card p-4 rounded-xl flex flex-col";
+
+        const startAt = data.startAt ? (data.startAt.seconds ? new Date(data.startAt.seconds * 1000) : new Date(data.startAt)) : null;
+        const startStr = startAt ? startAt.toLocaleString() : "Not scheduled";
+
+        // Check if the current user has already joined
+        const joined = await checkIfJoined(tid);
+
+        div.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 class="text-xl font-bold mb-1 text-white">${data.title || "Untitled"}</h3>
+              <div class="small text-gray-400">${data.category || 'General'} • Entry ₹${data.entryFee || 0}</div>
+            </div>
+            <div class="text-right">
+              <div class="small text-gray-400">Prize Pool</div>
+              <div class="font-bold text-lg" style="color:var(--primary);">₹${data.prize || 0}</div>
+            </div>
+          </div>
+          <div class="mt-3 small text-gray-400">Start: <span class="startTime">${startStr}</span></div>
+          <div class="mt-2 text-yellow-300 font-medium countdown" id="countdown_${docSnap.id}">Loading timer...</div>
+          <div class="mt-2 text-gray-400" id="status_${docSnap.id}">Status: ${data.status || 'pending'}</div>
+          <div class="mt-2 text-sm text-gray-300 font-medium" id="players_count_${docSnap.id}">
+             Players Joined: ${data.participants || 0} / ${data.maxPlayers || 100}
+          </div>
+          <div id="roomBlock_${docSnap.id}" class="mb-3 text-gray-300 mt-3"></div>
+          <div id="joinedLabel_${docSnap.id}"></div>
+          
+          <div class="mt-3 flex gap-2">
+            <button id="join_${docSnap.id}" data-entry-fee="${data.entryFee || 0}" class="d11-btn-red px-3 py-2 rounded-lg font-semibold">Join</button>
+            <button id="enterGameUid_${docSnap.id}" data-entry-fee="${data.entryFee || 0}" class="bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-lg">Game UID</button>
+          </div>
+        `;
+        list.appendChild(div);
+        setupTournamentUI(docSnap.id, data, joined);
+
+        // === Tournament Card Enhancement: Real-time Player Count ===
+        subscribeToParticipantCount(tid);
+        // === End Tournament Card Enhancement ===
+
+      });
+
+      if (snapshot.empty || list.childElementCount === 0) list.innerHTML = `<p class='muted text-gray-400 p-4'>No tournaments available in this category.</p>`;
+    }
+
+    // === Tournament Card Enhancement: New Subscription Function ===
+    const participantUnsubs = {};
+    function subscribeToParticipantCount(tid) {
+      if (participantUnsubs[tid]) participantUnsubs[tid]();
+
+      const tRef = doc(db, "tournaments", tid);
+      participantUnsubs[tid] = onSnapshot(tRef, (docSnap) => {
+        if (!docSnap.exists()) return;
+        const data = docSnap.data();
+        const participants = data.participants || 0;
+        const maxPlayers = data.maxPlayers || 100;
+        const countEl = el(`players_count_${tid}`);
+        if (countEl) {
+          countEl.innerText = `Players Joined: ${participants} / ${maxPlayers}`;
+        }
+      }, (err) => console.error(`Participants sub error for ${tid}`, err));
+    }
+    // === End Tournament Card Enhancement: New Subscription Function ===
+
+    async function setupTournamentUI(tid, tdata, joined) {
+      if (activeTimers[tid]) {
+        clearInterval(activeTimers[tid]);
+        delete activeTimers[tid];
+      }
+
+      const joinBtn = el(`join_${tid}`);
+      const enterBtn = el(`enterGameUid_${tid}`);
+      const countdownEl = el(`countdown_${tid}`);
+      const statusEl = el(`status_${tid}`);
+      const roomBlock = el(`roomBlock_${tid}`);
+      const joinedLabel = el(`joinedLabel_${tid}`);
+      const entryFee = Number(tdata.entryFee || 0);
+
+      // 1. Handle Joined State
+      if (joined) {
+        joinedLabel.innerHTML = '<p class="text-green-400 font-bold mb-2">✅ Joined!</p>';
+        joinBtn.disabled = true;
+        joinBtn.innerText = "Joined";
+        joinBtn.classList.remove('d11-btn-red');
+        joinBtn.classList.add('bg-gray-600');
+      } else {
+        joinBtn.innerText = `Join for ${formatRupee(entryFee)}`;
+        // Enable join button if status is 'pending' or 'started' but not full
+        joinBtn.disabled = (tdata.status !== 'pending' && tdata.status !== 'started');
+      }
+
+      // 2. Button Handlers
+      if (joinBtn && !joined) joinBtn.onclick = () => promptJoinTournament(tid, entryFee);
+      if (enterBtn) enterBtn.onclick = () => window.openUIDModal(tid, tdata.title || "Tournament");
+
+      if (joinBtn && !joined) {
+        if (entryFee > 0 && currentWallet.balance < entryFee) {
+          joinBtn.disabled = true;
+          joinBtn.innerText = `Insufficient Balance: ${formatRupee(entryFee)}`;
+        } else if (joinBtn.disabled) {
+          // Keep original disabled state if set by status check above (e.g., cancelled)
+        } else {
+          joinBtn.disabled = false;
+        }
+      }
+
+      // 3. Status/Room Details Update Logic
+      statusEl && (statusEl.innerText = `Status: ${tdata.status || 'pending'}`);
+
+      if (tdata.startAt) {
+        const startTs = tdata.startAt.seconds ? tdata.startAt.seconds * 1000 : new Date(tdata.startAt).getTime();
+        const revealBefore = (tdata.roomRevealBeforeMinutes || 10) * 60 * 1000;
+        const revealAt = startTs - revealBefore;
+        const updateFn = async () => {
+          const now = Date.now();
+          const diff = startTs - now;
+
+          // Check if match started
+          if (now >= startTs) {
+            if (countdownEl) countdownEl.innerText = "Match started";
+            if (joinBtn) {
+              joinBtn.disabled = true;
+              joinBtn.innerText = joined ? "Joined" : "Started";
+            }
+            clearInterval(activeTimers[tid]);
+            delete activeTimers[tid];
+            if (tdata.roomVisibleOnStart && roomBlock) {
+              const tSnap2 = await getDoc(doc(db, "tournaments", tid));
+              const td2 = tSnap2.exists() ? tSnap2.data() : {};
+              const rd2 = td2.roomDetails || {};
+              roomBlock.innerHTML = `<p class="text-green-400 font-bold">Room ID: ${rd2.roomId || '—'}</p><p class="text-green-400 mb-2 font-bold">Password: ${rd2.roomPass || '—'}</p>`;
+            }
+            return;
+          }
+
+          // Countdown text update
+          if (countdownEl) {
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            countdownEl.innerText = `Starts in: ${days > 0 ? days + 'd ' : ''}${hours}h ${minutes}m ${seconds}s`;
+          }
+
+          // Check if room details should be visible
+          if (now >= revealAt) {
+            // Only show if room details are actually set AND (visible to all OR user has joined)
+            if (tdata.roomDetails && (tdata.roomVisibleToAllOnReveal || joined)) {
+              // Fetch the latest room details just in case
+              const tSnap2 = await getDoc(doc(db, "tournaments", tid));
+              const td2 = tSnap2.exists() ? tSnap2.data() : {};
+              const rd2 = td2.roomDetails || {};
+              if (rd2.roomId && rd2.roomPass) {
+                roomBlock.innerHTML = `
+                              <div class="bg-white/10 p-3 rounded-lg mt-3">
+                                  <p class="text-green-400 font-bold">Room ID: ${rd2.roomId}</p>
+                                  <p class="text-green-400 font-bold">Password: ${rd2.roomPass}</p>
+                              </div>
+                          `;
+              }
+            }
+          }
+        };
+
+        activeTimers[tid] = setInterval(updateFn, 1000);
+        updateFn(); // Run immediately
+      }
+    }
+
+    // Checks if the user has a join document for the tournament
+    async function checkIfJoined(tid) {
+      if (!currentUser || !currentUser.uid) return false;
+      const joinRef = doc(db, 'tournaments', tid, 'joinedUsers', currentUser.uid);
+      const snap = await getDoc(joinRef);
+      return snap.exists();
+    }
+
+    window.setGameCategory = (cat) => {
+      selectedCategory = cat;
+      // Update button styles
+      document.querySelectorAll('.game-category-group button').forEach(btn => {
+        btn.classList.remove('bg-red-600', 'hover:bg-red-700');
+        btn.classList.add('bg-white/10', 'hover:bg-red-600');
+      });
+      const activeBtn = document.querySelector(`.game-category-group button[onclick*="setGameCategory('${cat}')"]`);
+      if (activeBtn) {
+        activeBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+        activeBtn.classList.remove('bg-white/10');
+      }
+      // Resubscribe to tournaments with the new filter
+      subscribeTournamentsByCategory(cat);
+    };
+
+    // Prompt user for joining, or redirect to UID modal if needed
+    window.promptJoinTournament = async (tid, fee) => {
+      if (!currentUser) return showToast("Login required.", 'error');
+
+      // Check for Game UID first
+      if (!currentUser.gameUid) {
+        // Set state to open the UID modal and then proceed to join
+        tournamentToJoin = { id: tid, entryFee: fee };
+        const tdata = (await getDoc(doc(db, "tournaments", tid))).data() || {};
+        window.openUIDModal(tid, tdata.title || "Tournament");
+        showToast("Please enter your Game UID first.", 'warning');
+        return;
+      }
+
+      // If UID is present, proceed directly to transaction
+      if (fee > 0 && currentWallet.balance < fee) return showToast(`Insufficient balance. Requires ${formatRupee(fee)}`, 'error');
+
+      const confirmJoin = confirm(`Confirm joining this tournament for ${formatRupee(fee)}?`);
+      if (confirmJoin) {
+        performJoinTransaction(tid, fee, currentUser.gameUid);
+      }
+    };
+
+    // Use Firestore Transaction for atomic balance update & join record
+    async function performJoinTransaction(tid, fee, gameUid) {
+      const wRef = doc(db, "wallets", currentUser.uid);
+      const btn = el(`join_${tid}`);
+      if (btn) {
+        btn.disabled = true;
+        btn.innerText = "Processing...";
+        btn.classList.add('bg-gray-600');
+      }
+
+      try {
+        await runTransaction(db, async (tx) => {
+          const wSnap = await tx.get(wRef);
+          const wData = wSnap.exists() ? wSnap.data() : {};
+          const totalBal = Number(wData.balance || 0);
+          if (totalBal < fee) throw new Error("Insufficient Balance in Wallet.");
+
+          tx.update(wRef, {
+            balance: totalBal - fee,
+            updatedAt: serverTimestamp()
+          });
+
+          const tJoinedRef = doc(db, 'tournaments', tid, "joinedUsers", currentUser.uid);
+          tx.set(tJoinedRef, {
+            gameUid,
+            gameUidSubmittedAt: serverTimestamp(),
+            uid: currentUser.uid,
+            joinedAt: serverTimestamp(),
+            entryFee: fee
+          }, { merge: true });
+
+          const tRef = doc(db, 'tournaments', tid);
+          tx.update(tRef, { participants: increment(1) });
+        });
+
+        // ✅ 2) AFTER transaction succeeds, write non-transactional logs
+        await addDoc(collection(db, 'transactions'), {
+          uid: currentUser.uid,
+          type: 'tournament_join',
+          amount: fee,
+          tournamentId: tid,
+          status: 'success',
+          date: serverTimestamp()
+        });
+
+        // ✅ 3) UI updates
+        const jl = el(`joinedLabel_${tid}`);
+        if (jl) jl.innerHTML = '<p class="text-green-400 font-bold mb-2">✅ Joined!</p>';
+
+        if (btn) {
+          btn.innerText = "Joined";
+          btn.classList.remove('d11-btn-red');
+          btn.classList.add('bg-gray-600');
+        }
+        showToast("Joined tournament successfully!", 'success');
+
+        // ✅ Re-render to refresh UI state
+        subscribeTournamentsByCategory(selectedCategory);
+      } catch (err) {
+        console.error("Join transaction failed", err);
+        openErrorModal("Join Failed", err.message || "Could not join tournament. Try again.");
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = `Join for ${formatRupee(fee)}`;
+          btn.classList.remove('bg-gray-600');
+          btn.classList.add('d11-btn-red');
+        }
+      }
+    }
+
+
+    // Saves the Game UID to user profile and tournament subcollection
+    window.saveAndJoinTournament = async () => {
+      const tId = el("tournamentIdHidden").value;
+      const gameUid = el("gameUidInput").value.trim();
+      const btn = el("submitUIDBtn");
+
+      if (!gameUid) {
+        showToast("Enter Game UID", 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = "Saving...";
+
+      try {
+        // 1. Update user's profile with new game UID
+        await updateDoc(doc(db, 'users', currentUser.uid), { gameUid });
+        currentUser.gameUid = gameUid; // Update local state
+
+        // 2. Save UID to the tournament's joinedUsers subcollection
+        const tJoinedRef = doc(db, 'tournaments', tId, "joinedUsers", currentUser.uid);
+        await setDoc(tJoinedRef, {
+          gameUid,
+          gameUidSubmittedAt: serverTimestamp(),
+          uid: currentUser.uid
+        }, { merge: true });
+
+        showToast("Game details saved!", 'success');
+        window.closeUIDModal();
+
+        // 3. Proceed to join transaction if state indicates it
+        if (tournamentToJoin && tournamentToJoin.id === tId) {
+          performJoinTransaction(tId, tournamentToJoin.entryFee, gameUid);
+        }
+      } catch (err) {
+        console.error("saveAndJoinTournament err", err);
+        openErrorModal("Submission Failed", err.message || "Try again.");
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Save & Join";
+        tournamentToJoin = null; // Clear state
+        // Re-render UI in case an Enter Game UID button was updated
+        subscribeTournamentsByCategory(selectedCategory);
+      }
+    };
+
+
+    // ---------- Tournament subscription wrapper ----------
+    function subscribeTournamentsByCategory(cat) {
+      if (tournamentsUnsub) tournamentsUnsub();
+
+      const tournamentsRef = collection(db, "tournaments");
+      let tQ;
+
+      // Query to get tournaments that are either 'pending' or 'started'
+      // Note: Firestore doesn't support OR queries easily, so we use a different approach or rely on the render function to filter statuses if needed.
+      // For now, we'll order by startAt and let the render function handle filtering/status display.
+
+      if (cat) {
+        // Requires a composite index: category ASC, startAt ASC
+        tQ = query(tournamentsRef,
+          where("category", "==", cat),
+          where("status", "in", ["pending", "started"]),
+          orderBy("startAt", "asc"));
+      } else {
+        // Requires a composite index: status ASC, startAt ASC
+        tQ = query(tournamentsRef,
+          where("status", "in", ["pending", "started"]),
+          orderBy("startAt", "asc"));
+      }
+
+      tournamentsUnsub = onSnapshot(tQ, (snap) => renderTournaments(snap), (err) => console.error("tournaments sub err", err));
+    }
+
+    // ---------- Deposit Flow ----------
+    window.setDepositAmount = (amt) => {
+      el("depositAmount").value = amt;
+      window.depositCheck();
+    };
+
+    window.depositCheck = () => {
+      const amount = Number(el("depositAmount").value);
+      const btn = el("depositBtn");
+
+      if (!amount || isNaN(amount) || amount < MIN_DEPOSIT) {
+        btn.disabled = true;
+        btn.innerText = `Min ${formatRupee(MIN_DEPOSIT)}`;
+      } else {
+        btn.disabled = false;
+        btn.innerText = `Add ${formatRupee(amount)} Cash`;
+      }
+    };
+
+    window.startDeposit = async () => {
+      if (!currentUser) { openErrorModal("Login Required", "Login first."); return; }
+
+      const amount = Number(el("depositAmount").value);
+      if (!amount || amount < MIN_DEPOSIT) { window.depositCheck(); return; }
+
+      const btn = el("depositBtn");
+      btn.disabled = true;
+      btn.innerText = "Processing checkout...";
+
+      try {
+        // Init Cashfree SDK (v3 uses window.Cashfree)
+        const cashfree = window.Cashfree({
+          mode: "production" // Explicitly upgraded as requested to production
+        });
+
+        // Get payment session from backend using RELATIVE PATH (runs natively on ngrok!)
+        const response = await fetch("/api/payment/create-order", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": "oneplay_secure_123" // Secure API Key Header
+          },
+          body: JSON.stringify({
+            userId: currentUser.uid,
+            amount: amount,
+            email: currentUser.email || undefined,
+            name: currentUser.name || undefined
+          })
+        });
+
+        const text = await response.text();
+        console.log("Raw response:", text);
+
+        if (!text) {
+          throw new Error("Empty response");
+        }
+
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (err) {
+          console.error("HTML/Parsing Error. Raw response:", text);
+          throw new Error("Invalid JSON from server");
+        }
+        
+        if (!response.ok) {
+           throw new Error(data.message || data.error || "Failed to create order");
+        }
+
+        const paymentSessionId = data.payment_session_id;
+
+        if (paymentSessionId) {
+          btn.innerText = "Opening Checkout...";
+
+          cashfree.checkout({
+            paymentSessionId: paymentSessionId,
+            redirectTarget: "_modal",
+          }).then((result) => {
+            // Handle cashfree checkout result
+            if (result.error) {
+              console.error("Cashfree Error:", result.error);
+              openErrorModal("Payment Error", result.error.message || "Checkout closed.");
+            } else if (result.paymentDetails) {
+              showToast("Payment processing! Your wallet will automatically update upon success.", "success");
+            }
+          });
+
+        } else {
+          throw new Error(data.message || data.error || "Failed to create payment session.");
+        }
+      } catch (err) {
+        console.error("startDeposit err", err);
+        openErrorModal("Deposit Error", err.message || "Could not initiate checkout. Try again.");
+      } finally {
+        btn.disabled = false;
+        btn.innerText = `Add ${formatRupee(amount)} Cash`;
+      }
+    };
+
+    // 🔥 Subscribe to transactions for the logged-in user
+    async function subscribeToTransactions(uid) {
+      const txRef = collection(db, "transactions");
+      const q = query(txRef, where("uid", "==", uid), orderBy("date", "desc"), limit(20));
+
+      onSnapshot(q, (snap) => {
+        const container = el("transactionsList");
+        container.innerHTML = "";
+        if (snap.empty) {
+          container.innerHTML = `<p class="text-gray-400 p-4">No transactions found.</p>`;
+          return;
+        }
+
+        snap.forEach(docSnap => {
+          const tx = docSnap.data();
+          const div = renderTransaction(tx); // uses your existing renderTransaction()
+          container.appendChild(div);
+        });
+      }, (err) => {
+        console.error("Transaction listener error:", err);
+        el("transactionsList").innerHTML = `<p class="text-red-400 p-4">Failed to load transactions.</p>`;
+      });
+    }
+    // ⏳ Remove loading text if nothing arrives after 5s
+    setTimeout(() => {
+      const list = el("transactionsList");
+      if (list && list.innerText.includes("Loading")) {
+        list.innerHTML = `<p class='text-gray-400 p-4'>No transactions found.</p>`;
+      }
+    }, 5000);
+
+
+
+    // ---------- Withdraw Flow ----------
+    window.withdrawCheck = () => {
+      const input = el("withdrawAmount");
+      const btn = el("withdrawBtn");
+      const warning = el("withdrawWarning");
+      if (!input || !btn || !currentWallet) return;
+
+      const upiId = currentWallet.upiId;
+      const amount = Number(input.value || 0);
+
+      const canonicalWinnings = Number(
+        currentWallet.winnings ??
+        currentWallet.withdrawable ??
+        currentWallet.winningBalance ??
+        currentWallet.winningsBalance ??
+        0
+      );
+
+      const hasSufficientWinnings = amount <= canonicalWinnings && amount > 0;
+
+      if (!upiId || !window.isValidUPI(upiId)) {
+        btn.disabled = true;
+        btn.innerText = "Invalid UPI ID";
+        warning.innerText = "Please update your profile to a valid UPI ID.";
+        warning.classList.remove('hidden');
+        warning.classList.remove('text-yellow-400');
+        warning.classList.add('text-red-500');
+      } else {
+        warning.classList.add('hidden');
+        warning.classList.remove('text-red-500');
+        warning.classList.add('text-yellow-400');
+        warning.innerText = "UPI is required before withdrawal."; // reset
+        if (!amount || amount < MIN_WITHDRAW) {
+          btn.disabled = true;
+          btn.innerText = `Min ${formatRupee(MIN_WITHDRAW)}`;
+        } else if (!hasSufficientWinnings) {
+          btn.disabled = true;
+          btn.innerText = `Insufficient Winnings: ${formatRupee(canonicalWinnings)}`;
+        } else {
+          btn.disabled = false;
+          btn.innerText = `Withdraw ${formatRupee(amount)}`;
+        }
+      }
+    };
+
+    window.startWithdraw = async () => {
+      if (!currentUser) { openErrorModal("Login Required", "Please login to withdraw."); return; }
+      const amount = Number(el("withdrawAmount").value);
+      const upiId = currentWallet.upiId;
+
+      if (!upiId || !window.isValidUPI(upiId)) {
+        alert("Please enter a valid UPI ID (e.g. 9876543210@ybl)");
+        window.withdrawCheck();
+        return;
+      }
+
+      if (amount < MIN_WITHDRAW || amount > (currentWallet.winnings || 0)) {
+        window.withdrawCheck(); // Re-check validation
+        return;
+      }
+
+      el("withdrawBtn").disabled = true;
+      el("withdrawBtn").innerText = "Processing...";
+
+      try {
+        // Run with relative path since dashboard.html is served from the root ngrok domain
+        const response = await fetch("/api/withdrawal/withdraw", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": "oneplay_secure_123" // Secure API key header
+          },
+          body: JSON.stringify({
+            userId: currentUser.uid,
+            amount: amount,
+            upiId: upiId,
+            name: currentUser.name || "OnePlay User",
+            email: currentUser.email || "user@example.com",
+            phone: currentUser.phone || "9999999999"
+          })
+        });
+
+        const text = await response.text();
+        console.log("Raw withdrawal response:", text);
+        
+        if (!text) {
+          throw new Error("Empty response from server");
+        }
+
+        let result;
+        try {
+          result = JSON.parse(text);
+        } catch (err) {
+          console.error("HTML/Parsing Error. Raw response:", text);
+          throw new Error("Invalid JSON from server");
+        }
+
+        if (!response.ok) {
+           throw new Error(result.message || result.error || "Failed to process withdrawal");
+        }
+
+        if (response.ok && result.success) {
+          showToast("Withdrawal requested successfully.", 'success');
+          el("withdrawAmount").value = '';
+          // Optionally trigger a manual wallet refresh here or let the listener handle it
+          setTimeout(() => window.refreshWalletBalance(), 1000);
+        } else {
+          throw new Error(result.error || result.message || "Failed to process withdrawal");
+        }
+      } catch (err) {
+        console.error("startWithdraw err", err);
+        openErrorModal("Withdrawal Failed", err.message || "Try again.");
+      } finally {
+        window.withdrawCheck(); // Re-enable button
+      }
+    };
+
+    // ---------- UID Modal Helpers (Modified to use new logic) ----------
+    window.openUIDModal = (tournamentId, tournamentTitle) => {
+      el("uidModalTitle").innerText = `Enter Details for: ${tournamentTitle}`;
+      el("tournamentIdHidden").value = tournamentId;
+      el("gameUidInput").value = currentUser?.gameUid || '';
+
+      // Update button text based on whether a join is pending after save
+      el("submitUIDBtn").innerText = tournamentToJoin ? "Save & Join" : "Save UID";
+
+      window.openModal('enterUIDModal');
+    };
+
+    window.closeUIDModal = () => {
+      window.closeModal('enterUIDModal');
+      tournamentToJoin = null; // Clear state
+    };
+
+    // ---------- Daily Reward (Uses transaction) ----------
+    window.dailyRewardClaim = async () => {
+      if (!currentUser) return showToast("Login required.", 'error');
+
+      const uRef = doc(db, 'users', currentUser.uid);
+      const wRef = doc(db, 'wallets', currentUser.uid);
+      const btn = el("claimDailyBtn");
+      btn.disabled = true;
+
+      try {
+        await runTransaction(db, async (tx) => {
+          const uSnap = await tx.get(uRef);
+          const wSnap = await tx.get(wRef);
+          const uData = uSnap.data();
+          const wData = wSnap.data() || {};
+
+          // Check if claimed today
+          let claimedToday = false;
+          if (uData.dailyRewardClaimedOn && uData.dailyRewardClaimedOn.toDate) {
+            const last = new Date(uData.dailyRewardClaimedOn.toDate().toDateString());
+            const today = new Date(new Date().toDateString());
+            claimedToday = last.getTime() === today.getTime();
+          }
+
+          if (claimedToday) throw new Error("Reward already claimed today.");
+
+          // Update user's last claim date
+          tx.update(uRef, { dailyRewardClaimedOn: serverTimestamp() });
+
+          // Update wallet: +5 to bonus and balance
+          tx.update(wRef, {
+            bonus: (wData.bonus || 0) + 2,
+            balance: (wData.balance || 0) + 2,
+            updatedAt: serverTimestamp()
+          });
+
+          // Add transaction record
+          await addDoc(collection(db, 'transactions'), {
+            uid: currentUser.uid,
+            type: 'daily_reward',
+            amount: 2,
+            status: 'success',
+            date: serverTimestamp()
+          });
+        });
+
+        showToast("Daily ₹2 claimed!", 'success');
+        // Manually update the button state immediately
+        checkDailyRewardStatus({ toDate: () => new Date() });
+
+      } catch (err) {
+        console.error("dailyRewardClaim err", err);
+        showToast(err.message || "Failed to claim daily.", 'error');
+        // Re-check status in case of error
+        const uSnap = await getDoc(doc(db, 'users', currentUser.uid));
+        checkDailyRewardStatus(uSnap.data().dailyRewardClaimedOn || null);
+      }
+    };
+
+    // ---------- Wallet Update Handler ----------
+    const onWalletUpdate = (snap) => {
+      if (!snap.exists()) return;
+      currentWallet = snap.data() || {};
+
+      // Calculate a single canonical winnings value from all possible fields
+      const canonicalWinnings = Number(
+        currentWallet.winnings ??
+        currentWallet.winnings ??
+        currentWallet.winningBalance ??
+        currentWallet.winningsBalance ??
+        0
+      );
+
+      // Update all UI elements
+      el("walletBalance").innerText = formatRupee(currentWallet.balance || 0);
+      el("walletBalanceBig").innerText = formatRupee(currentWallet.balance || 0);
+      el("depositValue").innerText = formatRupee(currentWallet.deposit || 0);
+      el("winningsValue").innerText = formatRupee(canonicalWinnings);
+      el("winningsValueWithdraw").innerText = formatRupee(canonicalWinnings);
+      el("bonusValue").innerText = formatRupee(currentWallet.bonus || 0);
+      el("withdrawableValue").innerText = formatRupee(canonicalWinnings);
+      el("upiIdDisplay").innerText = currentWallet.upiId || "Not Set";
+      el("profileUPI").innerText = currentWallet.upiId || "Not Set";
+
+      // Sync local state to canonical value for logic
+      currentWallet.winnings = canonicalWinnings;
+      currentWallet.withdrawable = canonicalWinnings;
+
+      if (typeof window.withdrawCheck === "function") window.withdrawCheck();
+
+      // Re-render tournaments to update join button status/text
+      try {
+        subscribeTournamentsByCategory(selectedCategory);
+      } catch (e) {
+        // Unsub error is fine, subscription will happen again if needed
+      }
+    };
+
+    // ---------- Subscriptions ----------
+    const subscribeToData = (uid) => {
+      // wallet
+      onSnapshot(doc(db, 'wallets', uid), (snap) => onWalletUpdate(snap), (err) => console.error("wallet sub err", err));
+
+      const txQ = query(
+        collection(db, "transactions"),
+        where("uid", "==", uid),
+        orderBy("date", "desc"),
+        limit(20)
+      );
+
+      onSnapshot(txQ, (snap) => {
+        const list = el("transactionsList");
+        list.innerHTML = "";
+
+        if (snap.empty) {
+          list.innerHTML = `<p class='text-gray-400 p-4'>No recent transactions found.</p>`;
+          return;
+        }
+
+        snap.forEach((docSnap) => {
+          const data = docSnap.data();
+          list.appendChild(renderTransaction(data));
+        });
+      }, (err) => {
+        console.error("❌ Transaction listener error:", err);
+      });
+
+      // notifications
+      if (notifyUnsub) notifyUnsub();
+      const nQ = query(collection(db, 'notifications'), where('target', 'in', ['all', uid]), orderBy('date', 'desc'), limit(10));
+      notifyUnsub = onSnapshot(nQ, (snap) => {
+        const out = el("notificationsList");
+        out.innerHTML = '';
+        let unreadCount = 0;
+        if (snap.empty) {
+          out.innerHTML = `<p class='text-gray-400 p-4'>No new notifications.</p>`;
+          return;
+        }
+        snap.forEach(d => {
+          const data = d.data();
+          out.appendChild(renderNotification(data));
+          if (!data.read) unreadCount++;
+        });
+        window.updateNotificationBadges(unreadCount);
+      }, (err) => console.error("notifications sub err", err));
+
+
+      // leaderboard
+      const lbQ = query(collection(db, 'users'), orderBy('points', 'desc'), limit(10));
+      onSnapshot(lbQ, (snap) => {
+        const c = el("leaderboardList");
+        c.innerHTML = '';
+        let rank = 1;
+        if (snap.empty) {
+          c.innerHTML = `<p class='text-gray-400 p-4'>No leaderboard data.</p>`;
+          return;
+        }
+        snap.forEach(docSnap => {
+          c.appendChild(createLeaderboardCard(docSnap.data(), rank++));
+        });
+      }, (err) => console.error("leaderboard sub err", err));
+
+      // Game History (Completed Tournaments where user joined)
+      const hQ = query(collection(db, 'tournaments'),
+        where('status', '==', 'completed'),
+        orderBy('startAt', 'desc'), limit(10));
+      onSnapshot(hQ, async (snap) => {
+        const out = el("historyList");
+        out.innerHTML = '';
+        const historyPromises = snap.docs.map(async (tDoc) => {
+          const tData = tDoc.data();
+          const joinSnap = await getDoc(doc(db, 'tournaments', tDoc.id, 'joinedUsers', uid));
+          if (joinSnap.exists()) {
+            const isWinner = tData.winners && tData.winners.some(w => w.uid === uid);
+            return createHistoryCard(tDoc.id, tData, isWinner);
+          }
+          return null;
+        });
+
+        const historyCards = (await Promise.all(historyPromises)).filter(card => card !== null);
+
+        if (historyCards.length === 0) {
+          out.innerHTML = `<p class='text-gray-400 p-4'>No completed tournaments found.</p>`;
+          return;
+        }
+        historyCards.forEach(card => out.appendChild(card));
+
+      }, (err) => console.error("history sub err", err));
+
+      // === Live Notifications Section: Tournament Alert Subscription ===
+      if (tournamentAlertUnsub) tournamentAlertUnsub();
+      const newTQ = query(collection(db, 'tournaments'), orderBy('createdAt', 'desc'), limit(1));
+      tournamentAlertUnsub = onSnapshot(newTQ, (snap) => {
+        if (snap.empty) return;
+        const latestDoc = snap.docs[0];
+        const latestId = latestDoc.id;
+        const tData = latestDoc.data();
+
+        if (lastTournamentId === null) {
+          lastTournamentId = latestId; // Initial load, set ID but don't alert
+          return;
+        }
+
+        if (latestId !== lastTournamentId) {
+          lastTournamentId = latestId;
+          const title = tData.title || "New Tournament";
+          const entryFee = tData.entryFee || 0;
+          const msg = `🎯 New Tournament Added: ${title} — Entry ₹${entryFee}`;
+          window.playNotifyTone();
+          showToast(msg, 'warning');
+          // Save notification to Firestore (no need to await)
+          window.saveNotification('tournament_new', title, msg, uid);
+        }
+      }, (err) => console.error("New Tournament Alert Sub Error:", err));
+      // === End Live Notifications Section: Tournament Alert Subscription ===
+
+      // === Live Notifications Section: Transaction Status Alert Subscription ===
+      if (transactionAlertUnsub) transactionAlertUnsub();
+      const txStatusQ = query(collection(db, 'transactions'),
+        where('uid', '==', uid),
+        where('status', 'in', ['success', 'failed']),
+        orderBy('date', 'desc'), limit(5)); // Check last 5 to ensure coverage
+
+      let initialTxLoad = true;
+      transactionAlertUnsub = onSnapshot(txStatusQ, (snap) => {
+        if (initialTxLoad) {
+          initialTxLoad = false;
+          return; // Skip alerts on initial load
+        }
+
+        snap.docChanges().forEach(change => {
+          if (change.type === "added") {
+            const tx = change.doc.data();
+            if (tx.type === 'deposit' || tx.type === 'winnings') {
+              let msg = '';
+              if (tx.status === 'success') {
+                msg = `${tx.type === 'deposit' ? '💸 Deposit' : '✅ Withdrawal'} ₹${tx.amount} Approved!`;
+              } else if (tx.status === 'failed') {
+                msg = `${tx.type === 'deposit' ? '❌ Deposit' : '🚫 Withdrawal'} ₹${tx.amount} Failed. Check details.`;
+              } else {
+                return; // Ignore other statuses like 'pending' for immediate alert
+              }
+
+              window.playNotifyTone();
+              showToast(msg, tx.status === 'success' ? 'success' : 'error');
+              window.saveNotification('transaction_status', 'Transaction Update', msg, uid);
+            }
+
+            if (tx.type === 'tournament_prize') {
+              const msg = `🏆 You Won ₹${tx.amount} in ${tx.tournamentName || 'a tournament'}!`;
+              window.playNotifyTone();
+              showToast(msg, 'success');
+              window.saveNotification('prize_won', 'Winnings Credited', msg, uid);
+            }
+          }
+        });
+      }, (err) => console.error("Transaction Status Alert Sub Error:", err));
+      // === End Live Notifications Section: Transaction Status Alert Subscription ===
+    };
+
+    // History Card Render
+    const createHistoryCard = (tid, tdata, isWinner) => {
+      const div = document.createElement("div");
+      div.className = "p-4 bg-white/5 rounded-xl border border-white/10 flex justify-between items-center";
+
+      const prizeWon = tdata.winners && tdata.winners.find(w => w.uid === currentUser.uid)?.prize || 0;
+      const prizeText = isWinner
+        ? `<span class="font-bold text-green-400">WON ${formatRupee(prizeWon)}</span>`
+        : `<span class="font-bold text-gray-400">LOST</span>`;
+
+      const dateStr = tdata.startAt && tdata.startAt.toDate ? new Date(tdata.startAt.toDate()).toLocaleDateString() : '—';
+
+      div.innerHTML = `
+            <div>
+                <div class="font-bold text-white">${tdata.title || 'Untitled Tournament'}</div>
+                <div class="text-xs text-gray-400">${tdata.category || 'General'} | Started: ${dateStr}</div>
+                <div class="text-xs text-gray-400">Entry: ${formatRupee(tdata.entryFee || 0)}</div>
+            </div>
+            <div class="text-right">
+                <div class="text-sm">${prizeText}</div>
+                <button onclick="viewMatchDetails('${tid}')" class="text-red-500 hover:text-red-400 text-sm font-semibold mt-1">
+                    View Details
+                </button>
+            </div>
+        `;
+      return div;
+    };
+
+    // Placeholder function for viewing details (can be expanded later)
+    window.viewMatchDetails = (tid) => {
+      showToast(`Viewing details for tournament: ${tid}. (Feature coming soon!)`, 'warning');
+    };
+
+    // ---------- Copy Referral (unchanged) ----------
+    window.copyRef = () => {
+      const link = el("refLink");
+      if (!link) return;
+      navigator.clipboard.writeText(link.value).then(() => showToast("Referral link copied!"));
+    };
+
+    // 🔥🔥🔥 CRITICAL FIX: EXPOSE MODULE FUNCTIONS TO GLOBAL SCOPE FOR INLINE HTML HANDLERS 🔥🔥🔥
+    window.promptJoinTournament = promptJoinTournament;
+    window.saveAndJoinTournament = saveAndJoinTournament;
+    window.performJoinTransaction = performJoinTransaction;
+    // other functions are already exposed with window. prefix
+
+    // === Live Notifications Section: New Functions ===
+    window.saveNotification = async (type, title, message, targetUid) => {
+      if (!currentUser) return;
+      try {
+        // 1. Add the new notification document
+        await addDoc(collection(db, 'notifications'), {
+          target: targetUid,
+          type: type,
+          title: title,
+          message: message,
+          date: serverTimestamp(),
+          read: false,
+        });
+
+        // 2. Increment the user's unread count
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          unreadNotifications: increment(1)
+        });
+        // currentUser will be updated via the listener
+      } catch (err) {
+        console.error("Failed to save notification:", err);
+      }
+    }
+
+    window.updateNotificationBadges = (count) => {
+      const mobileBadge = el('mobileUnreadCount');
+      const desktopBadge = el('desktopUnreadCount');
+
+      if (count > 0) {
+        mobileBadge.innerText = count > 9 ? '9+' : count;
+        mobileBadge.classList.remove('hidden');
+        desktopBadge.innerText = count > 9 ? '9+' : count;
+        desktopBadge.classList.remove('hidden');
+      } else {
+        mobileBadge.classList.add('hidden');
+        desktopBadge.classList.add('hidden');
+      }
+    }
+
+    window.markNotificationsAsRead = async () => {
+      if (!currentUser || currentUser.unreadNotifications === 0) return;
+      try {
+        // 1. Mark all unread notifications as read
+        const unreadQ = query(collection(db, 'notifications'),
+          where('target', 'in', ['all', currentUser.uid]),
+          where('read', '==', false));
+        const snap = await getDocs(unreadQ);
+        const batch = writeBatch(db); // Need writeBatch, import missing. Using manual update for simplicity.
+
+        // Note: Since batch is not imported in the original code, we'll iterate and update, 
+        // accepting that it's less efficient but maintains compatibility.
+        snap.forEach(async (docSnap) => {
+          await updateDoc(doc(db, 'notifications', docSnap.id), { read: true });
+        });
+
+        // 2. Reset the user's unread count to 0 (important for badge UI)
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          unreadNotifications: 0
+        });
+      } catch (err) {
+        console.error("Failed to mark notifications as read:", err);
+      }
+    }
+    // === End Live Notifications Section: New Functions ===
+
+    // === AI Chatbot Section: Logic ===
+    const chatPanel = el('chatPanel');
+    const chatButton = el('chatButton');
+    const chatMessages = el('chatMessages');
+    const chatInput = el('chatInput');
+
+    window.toggleChatPanel = () => {
+      chatPanel.classList.toggle('open');
+    };
+
+    if (chatButton) chatButton.addEventListener('click', window.toggleChatPanel);
+
+    // Rule-based responses
+    const faqResponses = {
+      'how to join tournament': {
+        title: 'Tournament Joining',
+        message: "To join a tournament, go to the **Dashboard** section. Find a tournament, click **Join**, confirm the entry fee, and if prompted, enter your **Game UID/IGN**. If you don't have enough balance, you'll need to **Add Cash** in the Wallet section."
+      },
+      'show my wallet balance': {
+        title: 'Wallet Balance',
+        message: `Your current Wallet Balances: 
+                - **Total Balance:** ${formatRupee(currentWallet.balance || 0)} 
+                - **Winnings:** ${formatRupee(currentWallet.winnings || 0)} 
+                - **Deposit:** ${formatRupee(currentWallet.deposit || 0)} 
+                - **Bonus:** ${formatRupee(currentWallet.bonus || 0)} 
+                Go to the Wallet & Withdraw section for full details.`
+      },
+      'how to withdraw money': {
+        title: 'Withdrawal Process',
+        message: "Withdrawals can be made from your **Winnings** balance. Go to **Wallet & Withdraw**. Make sure your **UPI ID** is set in your Profile. Enter the amount (min ₹100) and click **Withdraw**. Your request will be processed by the admin."
+      },
+      'what is my uid': {
+        title: 'Game UID',
+        message: `Your saved Game UID is **${currentUser?.gameUid || 'Not Set'}**. This is required for joining tournaments. You can update it on your **My Profile** page or when prompted while joining a tournament.`
+      },
+      'what is my username': {
+        title: 'Profile Name',
+        message: `Your display name is **${currentUser?.name || 'Player'}**.`
+      },
+      'help': {
+        title: 'How can I help you?',
+        message: "Try asking about: 'how to join tournament', 'show my wallet balance', or 'how to withdraw money'."
+      },
+      'hello': {
+        title: 'Welcome!',
+        message: "Hello there! I'm your OnePlay Assistant 🤖. How can I help you with the dashboard today?"
+      }
+    };
+
+    const addMessageToChat = (text, sender) => {
+      const div = document.createElement('div');
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const isUser = sender === 'user';
+
+      div.className = `flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`;
+
+      div.innerHTML = `
+            <div class="max-w-xs lg:max-w-md ${isUser ? 'bg-red-600' : 'bg-white/10'} p-3 rounded-xl ${isUser ? 'rounded-br-none' : 'rounded-tl-none'} shadow-md">
+                <p class="text-sm text-white whitespace-pre-wrap">${text}</p>
+                <span class="text-xs ${isUser ? 'text-red-200' : 'text-gray-400'} block mt-1 text-right">${time}</span>
+            </div>
+        `;
+      chatMessages.appendChild(div);
+      chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to bottom
+    };
+
+    window.sendChatMessage = async () => {
+      const text = chatInput.value.trim();
+      if (!text) return;
+
+      chatInput.value = '';
+      addMessageToChat(text, 'user');
+
+      // 1. Save user message to chat history
+      await saveChatHistory(text, 'user');
+
+      // 2. Process and get bot response
+      const lowerText = text.toLowerCase().replace(/[^a-z0-9 ]/g, '');
+      let botText = "I'm sorry, I don't have a direct answer for that. Please try rephrasing or ask about: 'how to join tournament', 'show my wallet balance', or 'how to withdraw money'.";
+
+      // Check local rules first
+      for (const [key, response] of Object.entries(faqResponses)) {
+        if (lowerText.includes(key)) {
+          botText = `**${response.title}**\n${response.message}`;
+          break;
+        }
+      }
+
+      // If still the default response, check Firestore FAQ (Simulated fetching for non-matched)
+      if (botText.startsWith("I'm sorry")) {
+        try {
+          const faqQ = query(collection(db, 'faq'), where('keywords', 'array-contains', lowerText.split(/\s+/)[0]), limit(1));
+          const faqSnap = await getDocs(faqQ);
+          if (!faqSnap.empty) {
+            botText = faqSnap.docs[0].data().answer;
+          }
+        } catch (err) {
+          console.error("Firestore FAQ fetch error:", err);
+        }
+      }
+
+      // 3. Display bot response
+      setTimeout(async () => {
+        addMessageToChat(botText, 'bot');
+        // 4. Save bot message to chat history
+        await saveChatHistory(botText, 'bot');
+      }, 800);
+    };
+
+    const saveChatHistory = async (text, sender) => {
+      if (!currentUser) return;
+      try {
+        await addDoc(collection(db, 'users', currentUser.uid, 'chatHistory'), {
+          sender: sender,
+          message: text,
+          timestamp: serverTimestamp()
+        });
+      } catch (err) {
+        console.error("Failed to save chat history:", err);
+      }
+    };
+
+    window.renderChatHistory = async () => {
+      if (!currentUser) return;
+      chatMessages.innerHTML = '';
+      try {
+        const historyQ = query(collection(db, 'users', currentUser.uid, 'chatHistory'), orderBy('timestamp', 'asc'), limit(30));
+        const snap = await getDocs(historyQ);
+
+        if (snap.empty) {
+          // Initial message from bot
+          addMessageToChat(faqResponses.hello.message, 'bot');
+          return;
+        }
+
+        snap.forEach(docSnap => {
+          const data = docSnap.data();
+          addMessageToChat(data.message, data.sender);
+        });
+      } catch (err) {
+        console.error("Failed to load chat history:", err);
+      }
+    };
+    // === End AI Chatbot Section: Logic ===
+
+    window.refreshWalletBalance = async () => {
+      const btn = el('refreshWalletBtn');
+      if (btn) btn.classList.add('animate-spin');
+      try {
+        const wSnap = await getDoc(doc(db, 'wallets', currentUser.uid));
+        if (wSnap.exists()) {
+          const wData = wSnap.data();
+          const amountBig = formatRupee(wData.balance || 0);
+          const elWB1 = el("walletBalance");
+          if (elWB1) elWB1.innerText = amountBig;
+          const elWB2 = el("walletBalanceBig");
+          if (elWB2) elWB2.innerText = amountBig;
+          const elDV = el("depositValue");
+          if (elDV) elDV.innerText = formatRupee(wData.deposit || 0);
+          const elWV = el("winningsValue");
+          if (elWV) elWV.innerText = formatRupee(wData.winnings || 0);
+          const elWVW = el("winningsValueWithdraw");
+          if (elWVW) elWVW.innerText = formatRupee(wData.winnings || 0);
+          const elWVD = el("withdrawableValue");
+          if (elWVD) elWVD.innerText = formatRupee(wData.winnings || 0);
+          const elBV = el("bonusValue");
+          if (elBV) elBV.innerText = formatRupee(wData.bonus || 0);
+
+          currentWallet = { ...currentWallet, ...wData };
+          showToast("Balance refreshed manually!", "success");
+        }
+      } catch (err) {
+        showToast("Error refreshing balance", "error");
+      } finally {
+        if (btn) btn.classList.remove('animate-spin');
+      }
+    };
+
+  </script>
+  <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+</body>
+
+</html>

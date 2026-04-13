@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ONEPLAY — Esports Login</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* === INTRO LOGO ANIMATION === */
+#intro {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, #ff9900 0%, #000 80%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  animation: fadeOut 5.2s ease forwards;
+  animation-delay: 3.8s;
+}
+@keyframes fadeOut {
+  to { opacity: 0; visibility: hidden; }
+}
+.logo-text {
+  font-size: 4rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  background: linear-gradient(90deg, #ffb300, #ff3300, #0077ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: logoFlash 3s ease forwards;
+  text-shadow: 0 0 20px #ffb300, 0 0 50px #ff3300;
+}
+@keyframes logoFlash {
+  0% { opacity: 0; transform: scale(0.6); filter: blur(10px); }
+  50% { opacity: 1; transform: scale(1.3); filter: blur(0); text-shadow: 0 0 60px #ff4500; }
+  100% { transform: scale(1); text-shadow: 0 0 80px #ffb300, 0 0 120px #0077ff; }
+}
+
+/* === BACKGROUND VIDEO === */
+video.bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+  filter: brightness(0.5) contrast(1.3);
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255,100,0,0.1), rgba(0,0,40,0.9));
+  z-index: -1;
+}
+
+/* === LOGIN CARD === */
+.card {
+  position: relative;
+  width: 90%;
+  max-width: 420px;
+  background: rgba(255,255,255,0.07);
+  backdrop-filter: blur(14px);
+  border-radius: 22px;
+  padding: 45px 38px;
+  text-align: center;
+  border: 1px solid rgba(255,150,0,0.4);
+  box-shadow: 0 0 40px rgba(255,100,0,0.25);
+  animation: fadeUp 1.8s ease forwards;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(70px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Energy border */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 25px;
+  background: linear-gradient(130deg, #ffb300, #ff3300, #0077ff);
+  background-size: 400% 400%;
+  animation: borderGlow 6s linear infinite;
+  z-index: -1;
+  opacity: 0.5;
+}
+@keyframes borderGlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* === INPUTS === */
+input {
+  width: 100%;
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 25px;
+  padding: 16px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 1.05rem;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+}
+input:focus {
+  background: rgba(255,255,255,0.22);
+  border-color: rgba(255,100,0,0.7);
+  outline: none;
+  transform: scale(1.03);
+  box-shadow: 0 0 20px rgba(255,100,0,0.9), 0 0 35px rgba(0,100,255,0.8);
+}
+
+/* === BUTTONS === */
+.btn {
+  width: 100%;
+  margin-top: 15px;
+  padding: 13px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #ffb300, #ff3300, #0077ff);
+  color: #000;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.btn:hover {
+  transform: scale(1.04);
+  box-shadow: 0 0 40px rgba(255,100,0,0.8);
+}
+.btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: rgba(255,255,255,0.3);
+  transition: all 0.3s ease;
+}
+.btn:hover::after {
+  left: 100%;
+}
+
+/* === GOOGLE BUTTON === */
+.google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #fff;
+  color: #000;
+  border-radius: 12px;
+  padding: 14px 0;
+  width: 100%;
+  text-align: center;
+  font-weight: 600;
+  margin: 22px auto 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 25px rgba(255,255,255,0.1);
+}
+.google-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 35px rgba(255,255,255,0.6);
+}
+.google-btn img {
+  width: 24px;
+  height: 24px;
+}
+
+/* === SMALL TEXT === */
+.switch {
+  margin-top: 16px;
+  font-size: 0.9rem;
+  color: #ffb300;
+  text-decoration: underline;
+  cursor: pointer;
+}
+#msg {
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+</style>
+</head>
+
+<body class="flex items-center justify-center min-h-screen">
+
+<div id="intro"><div class="logo-text">ONEPLAY</div></div>
+
+<video class="bg" autoplay muted loop playsinline>
+  <source src="https://cdn.coverr.co/videos/coverr-a-gamer-playing-fps-video-game-5464/1080p.mp4" type="video/mp4">
+</video>
+<div class="overlay"></div>
+
+<div class="card opacity-0" id="loginCard">
+  <h1 class="text-3xl font-extrabold mb-5 bg-gradient-to-r from-orange-400 via-red-500 to-blue-500 bg-clip-text text-transparent drop-shadow-lg">⚡ LOGIN TO ONEPLAY</h1>
+  <input id="email" type="email" placeholder="Enter your email" />
+  <input id="password" type="password" placeholder="Enter your password" />
+  <input id="referral" type="text" placeholder="Referral code (optional)" />
+  <button id="loginBtn" class="btn">Login</button>
+  <button id="googleBtn" class="google-btn">
+    <img src="https://www.svgrepo.com/show/355037/google.svg" alt="G">
+    Continue with Google
+  </button>
+  <p id="switchText" class="switch">New here? Click to Sign Up</p>
+  <p id="msg"></p>
+</div>
+
+<script>
+setTimeout(()=>document.getElementById("loginCard").classList.remove("opacity-0"),4700);
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup,
+  createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBI8bKRozUPxuhcy3T-Q31TImMDUGs366E",
+  authDomain: "oneplya1-6faad.firebaseapp.com",
+  projectId: "oneplya1-6faad",
+  storageBucket: "oneplya1-6faad.firebasestorage.app",
+  messagingSenderId: "807884655015",
+  appId: "1:807884655015:web:7cfcd71323b17afa40ce82",
+  measurementId: "G-KL3RK8TZ87"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+
+const email = document.getElementById("email");
+const pass = document.getElementById("password");
+const ref = document.getElementById("referral");
+const loginBtn = document.getElementById("loginBtn");
+const googleBtn = document.getElementById("googleBtn");
+const msg = document.getElementById("msg");
+const switchText = document.getElementById("switchText");
+const ADMIN_EMAIL_CHECK = "admin@oneplay.com"; // Email to check for admin redirect
+
+let isSignup = false;
+switchText.onclick = () => {
+  isSignup = !isSignup;
+  switchText.textContent = isSignup ? "Already have an account? Login" : "New here? Click to Sign Up";
+  loginBtn.textContent = isSignup ? "Sign Up" : "Login"; // UX improvement
+  msg.textContent = "";
+};
+const showMsg = (t, c="#ffb300") => { msg.textContent=t; msg.style.color=c; };
+
+const redirectUser = (userEmail) => {
+    if (userEmail === ADMIN_EMAIL_CHECK) {
+        window.location.href = "admin.html";
+    } else {
+        window.location.href = "dashboard.html";
+    }
+}
+
+loginBtn.onclick = async () => {
+  const emailVal=email.value.trim(), passVal=pass.value.trim(), refVal=ref.value.trim();
+  if(!emailVal||!passVal) return showMsg("⚠️ Fill all fields","red");
+  try{
+    let userCred;
+    if(isSignup){
+      userCred=await createUserWithEmailAndPassword(auth,emailVal,passVal);
+      if(refVal) await setDoc(doc(db,"referrals",userCred.user.uid),{referredBy:refVal,email:emailVal,joinedAt:new Date()});
+      showMsg("🎉 Account created! Redirecting...");
+    } else {
+      userCred=await signInWithEmailAndPassword(auth,emailVal,passVal);
+      showMsg("✅ Login successful!");
+    }
+    setTimeout(()=>redirectUser(userCred.user.email),1200); // Check and redirect
+  }catch(err){showMsg("❌ "+err.message,"red");}
+};
+
+googleBtn.onclick = async () => {
+  try{
+    const res=await signInWithPopup(auth,provider);
+    showMsg("✅ Welcome "+res.user.displayName);
+    setTimeout(()=>redirectUser(res.user.email),1000); // Check and redirect
+  }catch(err){showMsg("❌ "+err.message,"red");}
+};
+
+onAuthStateChanged(auth,u=>{if(u)redirectUser(u.email);});
+</script>
+
+<script type="text/javascript">
+document.addEventListener("DOMContentLoaded", function () {
+  document.addEventListener("click", function showOnePlayAd() {
+    if (!sessionStorage.getItem("oneplay_popunder_shown")) {
+      sessionStorage.setItem("oneplay_popunder_shown", "true");
+      var adScript = document.createElement("script");
+      adScript.type = "text/javascript";
+      adScript.src = "https://www.effectivegatecpm.com/kf6ffkg1e?key=1cacaabaf775748c1358789582c52f62";
+      document.body.appendChild(adScript);
+      console.log("✅ Popunder script injected");
+    }
+  }, { once: true });
+});
+</script>
+
+
+</body>
+</html>
