@@ -29,5 +29,16 @@ try {
 } catch (err) {
   console.error("❌ Firebase initialization error:", err.message);
 }
+const admin = require('firebase-admin');
+
+if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+
+  console.log("✅ Firebase initialized from Render environment variable");
+}
 
 module.exports = { db };
