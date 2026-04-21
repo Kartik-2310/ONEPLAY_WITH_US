@@ -686,11 +686,14 @@
 
     // API Configuration
     const API_KEY = "oneplay_secure_123";
-    // ✅ FIXED: Dynamic BASE_URL — works on localhost and production without changing code
-    const BASE_URL = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
-      ? "http://localhost:5000"
-      : window.location.origin;
-    const API_BASE_URL = BASE_URL;
+
+const isLocal =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1";
+
+const API_BASE_URL = isLocal
+  ? "http://localhost:5000"
+  : "https://oneplay-with-us.onrender.com";
 
     // ---------- GLOBAL STATE ----------
     let currentUser = null;
