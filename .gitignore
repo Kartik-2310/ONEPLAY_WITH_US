@@ -61,5 +61,5 @@ ui-debug.log
 # yarn.lock
 
 .env
-*.json
+
 serviceAccountKey.json
