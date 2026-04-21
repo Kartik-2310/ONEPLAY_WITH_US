@@ -6,4 +6,3 @@ const { createWithdraw } = require("../controllers/withdrawalController");
 router.post("/withdraw", createWithdraw);
 
 module.exports = router;
-console.log("createWithdraw:", createWithdraw);

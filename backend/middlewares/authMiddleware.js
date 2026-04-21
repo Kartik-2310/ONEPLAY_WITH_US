@@ -1,6 +1,10 @@
 require('dotenv').config();
 
 const authMiddleware = (req, res, next) => {
+  if (req.path.includes('/webhook')) {
+    return next();
+  }
+
   const apiKey = req.headers['x-api-key'];
 
   if (!apiKey || apiKey !== process.env.API_KEY) {

@@ -48,11 +48,16 @@
 
 <body class="bg-gray-900 text-white min-h-screen font-sans">
 
+  <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-10 hidden md:hidden transition-opacity" onclick="toggleSidebar()"></div>
+
   <aside id="sidebar"
     class="bg-gray-800 w-64 p-6 fixed h-full z-20 transform -translate-x-full md:translate-x-0 transition-transform duration-300 shadow-2xl border-r border-gray-700">
     <div class="flex items-center justify-between mb-8 pb-4 border-b border-gray-700">
       <h2 class="text-3xl font-extrabold text-green-400 tracking-wider">OnePlay <span
           class="text-indigo-400">Admin</span></h2>
+      <button class="md:hidden text-gray-400 hover:text-white transition" onclick="toggleSidebar()">
+        <i class="fas fa-times text-xl"></i>
+      </button>
     </div>
     <nav class="space-y-4 font-semibold">
       <a href="#"
@@ -284,7 +289,7 @@
           <button type="button" data-wfilter="failed"
             class="withdraw-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-600 hover:bg-gray-500 transition ring-2 ring-transparent">Failed</button>
         </div>
-        <div id="withdrawList" class="space-y-3 max-h-80 overflow-y-auto fancy-scroll"></div>
+        <div id="pendingWithdrawals" class="space-y-3 max-h-80 overflow-y-auto fancy-scroll"></div>
       </div>
 
       <div class="bg-gray-800 p-6 rounded-2xl shadow-xl">
@@ -383,6 +388,15 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
     const el = id => document.getElementById(id);
+    const API_KEY = "oneplay_secure_123";
+
+    const BASE_URL =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1"
+        ? "http://localhost:5000"
+        : window.location.origin;
+
+    const API_BASE_URL = BASE_URL;
 
     // map of intervals for admin countdowns
     const adminCountdowns = {};
@@ -441,7 +455,7 @@
     }
 
     function renderWithdrawalList() {
-      const c = el("withdrawList");
+      const c = el("pendingWithdrawals");
       if (!c) return;
 
       const f = withdrawalListFilter;
@@ -450,6 +464,8 @@
         if (f === "all") return true;
         return st === f;
       });
+
+      console.log(`[DEBUG] Rendering ${rows.length} withdrawals for filter '${f}'`);
 
       el("statPendingWinnings").innerText = winningsCache
         .filter((w) => normalizeWithdrawalStatus(w.status) === "pending")
@@ -463,12 +479,11 @@
       const html = rows
         .map((w) => {
           const docId = escapeHtml(w.id);
-          const uid = escapeHtml(w.uid || "Unknown");
+          const username = escapeHtml(w.username || w.userId || w.uid || "Unknown User");
           const amount = Number(w.amount) || 0;
-          const upi = escapeHtml((w.upi || "—").toString());
+          const upi = escapeHtml((w.upiId || w.upi || "—").toString());
           const status = normalizeWithdrawalStatus(w.status);
-          const utr = w.utr ? escapeHtml(w.utr) : null;
-          const processedAt = formatFirestoreTime(w.processedAt);
+          const createdAt = formatFirestoreTime(w.createdAt);
           const manual = amount >= WITHDRAWAL_AUTO_MAX_AMOUNT && status === "pending";
           const border =
             status === "paid"
@@ -480,17 +495,23 @@
                   : "border-amber-500";
 
           let extra = "";
-          if (status === "paid" && utr) {
-            extra += `<div class="text-xs text-emerald-400 mt-1 font-mono">UTR: ${utr}</div>`;
+          if (status === "paid") {
+            extra += `<div class="text-xs text-emerald-400 mt-1">Approved At: ${formatFirestoreTime(w.approvedAt)}</div>`;
           }
           if (status === "failed") {
-            const reason = escapeHtml(w.failureReason || "unknown");
-            const det = w.failureDetail ? escapeHtml(w.failureDetail) : "";
-            extra += `<div class="text-xs text-rose-300 mt-1">Reason: ${reason}${det ? ` — ${det}` : ""}</div>`;
+            const reason = escapeHtml(w.rejectReason || w.failureReason || "unknown");
+            extra += `<div class="text-xs text-rose-300 mt-1">Reason: ${reason}</div>`;
           }
           if (manual) {
             extra += `<div class="text-[11px] text-amber-200/90 mt-1">Manual: amount ≥ ₹${WITHDRAWAL_AUTO_MAX_AMOUNT} — process payout outside the app.</div>`;
           }
+
+          const actions = status === "pending"
+            ? `<div class="mt-3 flex flex-wrap gap-2">
+                  <button onclick="approveWithdraw('${docId}')" class="bg-emerald-500 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-emerald-600 transition">Approve</button>
+                  <button onclick="rejectWithdraw('${docId}')" class="bg-rose-600 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-rose-700 transition">Reject</button>
+                </div>`
+            : "";
 
           return `
                 <div class="bg-gray-700 p-3 rounded-xl border-l-4 ${border} hover:bg-gray-600 transition fade-in">
@@ -499,14 +520,15 @@
                       <div class="flex flex-wrap items-center gap-2 mb-1">
                         ${withdrawalStatusBadge(status)}
                       </div>
-                      <div class="font-semibold text-white truncate">${uid}</div>
+                      <div class="font-semibold text-white truncate">${username}</div>
                       <div class="text-sm text-gray-300 flex flex-col mt-1">
                         <div class="flex items-center space-x-2">
                           <i class="fas fa-rupee-sign text-xs"></i><span>₹${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
                         </div>
                         <div class="text-xs text-gray-400 mt-1">UPI: ${upi}</div>
-                        <div class="text-xs text-gray-500 mt-1">Processed: ${processedAt}</div>
+                        <div class="text-xs text-gray-500 mt-1">Requested: ${createdAt}</div>
                         ${extra}
+                        ${actions}
                       </div>
                     </div>
                   </div>
@@ -538,51 +560,157 @@
     }
 
     function subscribeWinnings() {
-      const q = query(collection(db, "winnings"), limit(300));
+      console.log("[DEBUG] Subscribing to withdrawRequests collection...");
+      const q = query(collection(db, "withdrawRequests"), where("status", "==", "pending"), limit(300));
       onSnapshot(
         q,
         (snap) => {
           try {
+            console.log(`[DEBUG] Received ${snap.size} withdrawal documents from Firestore`);
             const items = [];
-            snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
+            snap.forEach((d) => {
+              const data = d.data();
+              console.log(`[DEBUG] Withdrawal doc ${d.id}:`, data);
+              items.push({ id: d.id, ...data });
+            });
             items.sort((a, b) => {
               const ta = a.createdAt?.seconds ?? a.createdAt?._seconds ?? 0;
               const tb = b.createdAt?.seconds ?? b.createdAt?._seconds ?? 0;
               return tb - ta;
             });
             winningsCache = items;
+            console.log(`[DEBUG] Cached ${items.length} pending withdrawals`);
             renderWithdrawalList();
-
-            if (!winningsSubscriptionReady) {
-              winningsSubscriptionReady = true;
-              items.forEach((w) => {
-                if ((w.status || "pending") === "pending" && Number(w.amount) < WITHDRAWAL_AUTO_MAX_AMOUNT) {
-                  tryClaimAndProcess(w.id, w);
-                }
-              });
-            } else {
-              snap.docChanges().forEach((ch) => {
-                const d = ch.doc.data();
-                const st = (d.status || "pending").toLowerCase();
-                const amt = Number(d.amount) || 0;
-                if (amt >= WITHDRAWAL_AUTO_MAX_AMOUNT) return;
-                if (st !== "pending") return;
-                if (ch.type === "added" || ch.type === "modified") {
-                  console.log("[subscribeWinnings] pending change", ch.type, ch.doc.id);
-                  tryClaimAndProcess(ch.doc.id, d);
-                }
-              });
-            }
           } catch (error) {
             console.error("[subscribeWinnings] handler error", error);
-            el("withdrawList").innerHTML = `<p class="text-red-400 p-4 text-center text-sm">Error loading withdrawals</p>`;
+            el("pendingWithdrawals").innerHTML = `<p class="text-red-400 p-4 text-center text-sm">Error loading withdrawals</p>`;
           }
         },
         (error) => console.error("[subscribeWinnings] snapshot error", error)
       );
     }
 
-    window.autoProcessWithdrawal = autoProcessWithdrawal;
+    async function approveWithdraw(withdrawId) {
+      console.log(`[approveWithdraw] Starting approval for ID: ${withdrawId}`);
+      try {
+        if (!withdrawId) throw new Error('Missing withdrawId');
+
+        const url = `${API_BASE_URL}/api/admin/withdrawals/${withdrawId}/approve`;
+        const headers = {
+          'Content-Type': 'application/json',
+          'x-api-key': API_KEY
+        };
+
+        console.log(`\n🟢 ADMIN: Approving Withdrawal`);
+        console.log("API URL:", url);
+        console.log("API Headers:", headers);
+        console.log("API Key:", API_KEY);
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({})
+        });
+
+        console.log(`[approveWithdraw] Response status: ${response.status}`);
+        const text = await response.text();
+        console.log(`[approveWithdraw] Raw response text: "${text}"`);
+
+        if (!text) {
+          throw new Error('Empty response from server');
+        }
+
+        let result;
+        try {
+          result = JSON.parse(text);
+          console.log(`[approveWithdraw] Parsed JSON:`, result);
+        } catch (parseError) {
+          console.error(`[approveWithdraw] JSON parse error:`, parseError);
+          throw new Error(`Invalid JSON response: ${text}`);
+        }
+
+        if (!response.ok) {
+          throw new Error(result.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        if (!result.success) {
+          throw new Error(result.message || 'Approval failed');
+        }
+
+        alert(`✅ ${result.message || 'Withdrawal approved successfully'}`);
+        if (Array.isArray(winningsCache)) {
+          winningsCache = winningsCache.filter((item) => item.id !== withdrawId);
+        }
+        if (typeof renderWithdrawalList === 'function') renderWithdrawalList();
+      } catch (err) {
+        console.error('approveWithdraw error:', err);
+        alert('Error approving withdrawal: ' + err.message);
+      }
+    }
+
+    const approveWithdrawal = approveWithdraw;
+
+    async function rejectWithdraw(withdrawId) {
+      console.log(`[rejectWithdraw] Starting rejection for ID: ${withdrawId}`);
+      try {
+        if (!withdrawId) throw new Error('Missing withdrawId');
+        const reason = prompt('Enter reject reason (optional):', 'Insufficient funds or invalid UPI');
+
+        const url = `${API_BASE_URL}/api/admin/reject-withdrawal`;
+        const headers = {
+          'Content-Type': 'application/json',
+          'x-api-key': API_KEY
+        };
+
+        console.log("\n🔴 ADMIN: Rejecting Withdrawal");
+        console.log("API URL:", url);
+        console.log("API Headers:", headers);
+        console.log("API Key:", API_KEY);
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({ withdrawalId: withdrawId, rejectReason: reason || 'Rejected by admin' })
+        });
+
+        console.log(`[rejectWithdraw] Response status: ${response.status}`);
+        const text = await response.text();
+        console.log(`[rejectWithdraw] Raw response text: "${text}"`);
+
+        if (!text) {
+          throw new Error('Empty response from server');
+        }
+
+        let result;
+        try {
+          result = JSON.parse(text);
+          console.log(`[rejectWithdraw] Parsed JSON:`, result);
+        } catch (parseError) {
+          console.error(`[rejectWithdraw] JSON parse error:`, parseError);
+          throw new Error(`Invalid JSON response: ${text}`);
+        }
+
+        if (!response.ok) {
+          throw new Error(result.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        if (!result.success) {
+          throw new Error(result.message || 'Rejection failed');
+        }
+
+        alert('❌ Withdrawal rejected and refunded successfully');
+        // Optionally refresh the list
+        if (typeof renderWithdrawalList === 'function') {
+          renderWithdrawalList();
+        }
+      } catch (err) {
+        console.error('rejectWithdraw error:', err);
+        alert('Error rejecting withdrawal: ' + err.message);
+      }
+    }
+
+    window.approveWithdraw = approveWithdraw;
+    window.rejectWithdraw = rejectWithdraw;
 
     // ---------- NEW FEATURE DATA (Client-side) ----------
     const GAMES_DATA = {
@@ -633,7 +761,11 @@
       initializeChart();
     };
 
-    window.toggleSidebar = () => el("sidebar").classList.toggle("-translate-x-full");
+    window.toggleSidebar = () => {
+      el("sidebar").classList.toggle("-translate-x-full");
+      const overlay = el("sidebarOverlay");
+      if(overlay) overlay.classList.toggle("hidden");
+    };
     el("adminLogout").addEventListener("click", () => location.reload());
 
     function startAdmin() {
@@ -1388,7 +1520,7 @@
       try {
         const usersSnap = await getDocs(collection(db, "users"));
         const tournamentsSnap = await getDocs(collection(db, "tournaments"));
-        const winningsSnap = await getDocs(query(collection(db, "winnings"), where("status", "==", "pending")));
+        const withdrawalsSnap = await getDocs(query(collection(db, "withdrawRequests"), where("status", "==", "pending")));
         const walletsSnap = await getDocs(collection(db, "wallets"));
         let walletSum = 0;
         walletsSnap.forEach(w => walletSum += (w.data().balance || 0));
@@ -1396,7 +1528,7 @@
         el("statUsers").innerText = usersSnap.size.toLocaleString();
         el("statWalletSum").innerText = "₹" + walletSum.toLocaleString();
         el("statTournaments").innerText = tournamentsSnap.size.toLocaleString();
-        el("statPendingWinnings").innerText = winningsSnap.size.toLocaleString();
+        el("statPendingWinnings").innerText = withdrawalsSnap.size.toLocaleString();
       } catch (err) { console.error(err); }
       setTimeout(computeAnalytics, 10000);
     }

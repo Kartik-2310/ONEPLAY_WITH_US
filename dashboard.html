@@ -258,11 +258,17 @@
     </div>
   </header>
 
-  <div id="sidebarOverlay" class="sidebar-overlay hidden" onclick="closeSidebarMobile()"></div>
+  <div id="sidebarOverlay" class="sidebar-overlay" onclick="closeSidebarMobile()"></div>
 
   <aside id="sidebar"
     class="w-72 md:w-72 p-6 fixed top-0 bottom-0 h-screen z-50 transform rounded-none md:rounded-r-2xl d11-card">
-
+    <button onclick="closeSidebarMobile()"
+      class="md:hidden absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+      style="z-index:1">
+      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+      </svg>
+    </button>
     <div class="flex items-center gap-3 mb-8">
       <div class="rounded-full w-12 h-12 bg-red-600 flex items-center justify-center font-bold text-white shadow-lg">OP
       </div>
@@ -591,14 +597,16 @@
       <h2 class="text-2xl font-bold text-white mb-4">Update UPI ID</h2>
       <p class="text-gray-400 mb-4">This UPI will be used for all your withdrawals.</p>
 
-      <input id="newUpiInput" type="text" placeholder="Enter UPI ID (e.g. 9876543210@ybl)" oninput="window.validateUpiInput()"
+      <input id="newUpiInput" type="text" placeholder="Enter UPI ID (e.g. 9876543210@ybl)"
+        oninput="window.validateUpiInput()"
         class="text-white bg-white/10 px-4 py-3 rounded-xl w-full border border-transparent focus:border-red-600 transition mb-2" />
       <p id="upiErrorMsg" class="text-xs text-red-500 hidden mb-4">Please enter a valid UPI ID (e.g. 9876543210@ybl)</p>
 
       <div class="flex justify-end gap-3">
         <button onclick="closeUPIModal()"
           class="px-4 py-2 rounded-xl bg-white/10 font-bold hover:bg-white/20 transition-colors"> Cancel </button>
-        <button id="saveUpiBtn" onclick="saveNewUPI()" disabled class="px-4 py-2 rounded-xl d11-btn-red font-bold disabled:opacity-50"> Save </button>
+        <button id="saveUpiBtn" onclick="saveNewUPI()" disabled
+          class="px-4 py-2 rounded-xl d11-btn-red font-bold disabled:opacity-50"> Save </button>
       </div>
     </div>
   </div>
@@ -668,13 +676,21 @@
     import {
       getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc,
       onSnapshot, query, where, orderBy, addDoc, serverTimestamp, increment,
-      runTransaction, limit
+      runTransaction, writeBatch, limit
     } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
+
+    // API Configuration
+    const API_KEY = "oneplay_secure_123";
+    // ✅ FIXED: Dynamic BASE_URL — works on localhost and production without changing code
+    const BASE_URL = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+      ? "http://localhost:5000"
+      : window.location.origin;
+    const API_BASE_URL = BASE_URL;
 
     // ---------- GLOBAL STATE ----------
     let currentUser = null;
@@ -746,16 +762,16 @@
     };
     window.closeErrorModal = () => window.closeModal('errorModal');
 
-    window.isValidUPI = function(upi) {
+    window.isValidUPI = function (upi) {
       if (!upi) return false;
       return /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/.test(upi);
     };
 
-    window.validateUpiInput = function() {
+    window.validateUpiInput = function () {
       const input = el("newUpiInput");
       const errorMsg = el("upiErrorMsg");
       const saveBtn = el("saveUpiBtn");
-      
+
       const val = input.value.trim();
       if (val === '') {
         input.classList.remove('border-red-500');
@@ -763,7 +779,7 @@
         if (saveBtn) saveBtn.disabled = true;
         return false;
       }
-      
+
       if (!window.isValidUPI(val)) {
         input.classList.add('border-red-500');
         if (errorMsg) errorMsg.classList.remove('hidden');
@@ -812,8 +828,16 @@
     const sidebar = el('sidebar'), sidebarOverlay = el('sidebarOverlay'), hamburgerBtn = el('hamburgerBtn');
 
     // Functions exposed to window for HTML buttons
-    window.openSidebarMobile = () => { sidebar.classList.add('open'); sidebarOverlay.classList.add('open'); };
-    window.closeSidebarMobile = () => { sidebar.classList.remove('open'); sidebarOverlay.classList.remove('open'); };
+    window.openSidebarMobile = () => {
+      sidebar.classList.add('open');
+      sidebarOverlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    };
+    window.closeSidebarMobile = () => {
+      sidebar.classList.remove('open');
+      sidebarOverlay.classList.remove('open');
+      document.body.style.overflow = '';
+    };
 
     if (hamburgerBtn) hamburgerBtn.addEventListener('click', window.openSidebarMobile);
     // Initial section load
@@ -839,9 +863,8 @@
       subscribeTournamentsByCategory('');
 
       // === AI Chatbot Section: Initialization ===
-      el('chatPanel').classList.remove('hidden'); // Show panel container (hidden by CSS transform initially)
-      window.toggleChatPanel(); // Force a close on load
-      window.renderChatHistory(); // Load history
+      // Panel stays hidden until user taps the chat button
+      window.renderChatHistory();
       // === End AI Chatbot Section: Initialization ===
     });
 
@@ -1500,6 +1523,59 @@
       }
     };
 
+    async function createDepositOrder(amount) {
+      try {
+        const url = `${BASE_URL}/api/payment/create-order`;
+        const headers = {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY
+        };
+
+        console.log("\n🔵 DEPOSIT: Creating Order");
+        console.log("API URL:", url);
+        console.log("API Headers:", headers);
+        console.log("API Key:", API_KEY);
+
+        const response = await fetch(url, {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({
+            userId: currentUser.uid,
+            amount: Number(amount)
+          })
+        });
+
+        console.log("Response Status:", response.status);
+        console.log("Response Content-Type:", response.headers.get("content-type"));
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          const text = await response.text();
+          console.error("Expected JSON but got:", text.substring(0, 200));
+          throw new Error("Server returned HTML instead of JSON");
+        }
+
+        const rawText = await response.text();
+        console.log("Create order raw response:", rawText);
+
+        const data = rawText ? JSON.parse(rawText) : {};
+
+        if (!response.ok) {
+          throw new Error(data.message || `Server returned ${response.status}`);
+        }
+
+        if (!data.success) {
+          throw new Error(data.message || "Failed to create deposit order");
+        }
+
+        return data;
+
+      } catch (error) {
+        console.error("❌ Deposit error:", error);
+        throw error;
+      }
+    }
+
     window.startDeposit = async () => {
       if (!currentUser) { openErrorModal("Login Required", "Login first."); return; }
 
@@ -1512,45 +1588,13 @@
 
       try {
         // Init Cashfree SDK (v3 uses window.Cashfree)
+        // ✅ Change to "sandbox" for testing, "production" for live
         const cashfree = window.Cashfree({
-          mode: "production" // Explicitly upgraded as requested to production
+          mode: "production"
         });
 
-        // Get payment session from backend using RELATIVE PATH (runs natively on ngrok!)
-        const response = await fetch("/api/payment/create-order", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": "oneplay_secure_123" // Secure API Key Header
-          },
-          body: JSON.stringify({
-            userId: currentUser.uid,
-            amount: amount,
-            email: currentUser.email || undefined,
-            name: currentUser.name || undefined
-          })
-        });
-
-        const text = await response.text();
-        console.log("Raw response:", text);
-
-        if (!text) {
-          throw new Error("Empty response");
-        }
-
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch (err) {
-          console.error("HTML/Parsing Error. Raw response:", text);
-          throw new Error("Invalid JSON from server");
-        }
-        
-        if (!response.ok) {
-           throw new Error(data.message || data.error || "Failed to create order");
-        }
-
-        const paymentSessionId = data.payment_session_id;
+        const orderData = await createDepositOrder(amount);
+        const paymentSessionId = orderData.paymentSessionId || orderData.payment_session_id;
 
         if (paymentSessionId) {
           btn.innerText = "Opening Checkout...";
@@ -1679,25 +1723,42 @@
 
       try {
         // Run with relative path since dashboard.html is served from the root ngrok domain
-        const response = await fetch("/api/withdrawal/withdraw", {
+        const url = `${API_BASE_URL}/api/withdraw`;
+        const headers = {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY
+        };
+
+        console.log("\n🟡 WITHDRAWAL: Processing Request");
+        console.log("API URL:", url);
+        console.log("API Headers:", headers);
+        console.log("API Key:", API_KEY);
+
+        const response = await fetch(url, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": "oneplay_secure_123" // Secure API key header
-          },
+          headers: headers,
           body: JSON.stringify({
             userId: currentUser.uid,
+            username: currentUser.displayName || currentUser.name || currentUser.email || "OnePlay User",
             amount: amount,
             upiId: upiId,
-            name: currentUser.name || "OnePlay User",
             email: currentUser.email || "user@example.com",
             phone: currentUser.phone || "9999999999"
           })
         });
 
+        console.log("Response Status:", response.status);
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          const text = await response.text();
+          console.error("Expected JSON but got:", text.substring(0, 200));
+          throw new Error("Server returned HTML instead of JSON");
+        }
+
         const text = await response.text();
         console.log("Raw withdrawal response:", text);
-        
+
         if (!text) {
           throw new Error("Empty response from server");
         }
@@ -1711,15 +1772,17 @@
         }
 
         if (!response.ok) {
-           throw new Error(result.message || result.error || "Failed to process withdrawal");
+          throw new Error(result.message || result.error || "Failed to process withdrawal");
         }
 
         if (response.ok && result.success) {
+          console.log("✅ Withdrawal successful:", result);
           showToast("Withdrawal requested successfully.", 'success');
           el("withdrawAmount").value = '';
           // Optionally trigger a manual wallet refresh here or let the listener handle it
           setTimeout(() => window.refreshWalletBalance(), 1000);
         } else {
+          console.error("❌ Withdrawal failed from server:", result);
           throw new Error(result.error || result.message || "Failed to process withdrawal");
         }
       } catch (err) {
@@ -2124,9 +2187,27 @@
     const chatMessages = el('chatMessages');
     const chatInput = el('chatInput');
 
-    window.toggleChatPanel = () => {
-      chatPanel.classList.toggle('open');
+    window.openChatPanel = () => {
+      chatPanel.classList.remove('hidden');
+      setTimeout(() => chatPanel.classList.add('open'), 10);
     };
+    window.closeChatPanel = () => {
+      chatPanel.classList.remove('open');
+      setTimeout(() => chatPanel.classList.add('hidden'), 300);
+    };
+    window.toggleChatPanel = () => {
+      if (chatPanel.classList.contains('hidden') || !chatPanel.classList.contains('open')) {
+        window.openChatPanel();
+      } else {
+        window.closeChatPanel();
+      }
+    };
+    document.addEventListener('click', (e) => {
+      const widget = el('chatWidget');
+      if (widget && !widget.contains(e.target) && chatPanel.classList.contains('open')) {
+        window.closeChatPanel();
+      }
+    });
 
     if (chatButton) chatButton.addEventListener('click', window.toggleChatPanel);
 
@@ -2297,7 +2378,6 @@
     };
 
   </script>
-  <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 </body>
 
 </html>
