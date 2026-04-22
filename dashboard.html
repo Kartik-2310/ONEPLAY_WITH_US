@@ -1563,7 +1563,7 @@ const API_BASE_URL = isLocal
 
     async function createDepositOrder(amount) {
       try {
-        const url = `${BASE_URL}/api/payment/create-order`;
+        const url = `${API_BASE_URL}/api/payment/create-order`;
         const headers = {
           "Content-Type": "application/json",
           "x-api-key": API_KEY
