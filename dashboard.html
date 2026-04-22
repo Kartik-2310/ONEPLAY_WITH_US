@@ -5,6 +5,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>OnePlay Dashboard — Dream11 UI</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
   <style>
@@ -659,7 +662,7 @@
       </div>
     </div>
   </div>
-  <script type="module">
+  <script>
     // ---------- FIREBASE CONFIG (kept same as you requested) ----------
     const firebaseConfig = {
       apiKey: "AIzaSyBI8bKRozUPxuhcy3T-Q31TImMDUGs366E",
@@ -671,18 +674,50 @@
       measurementId: "G-KL3RK8TZ87"
     };
 
-    // Firebase imports
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import {
-      getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc,
-      onSnapshot, query, where, orderBy, addDoc, serverTimestamp, increment,
-      runTransaction, writeBatch, limit
-    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+    // ---------- Compat shims so modular-style calls work with compat SDK ----------
+    const collection = (dbRef, ...pathSegments) => {
+      let ref = dbRef;
+      for (let i = 0; i < pathSegments.length; i++) {
+        ref = (i % 2 === 0) ? ref.collection(pathSegments[i]) : ref.doc(pathSegments[i]);
+      }
+      return ref;
+    };
+    const doc = (dbRef, ...pathSegments) => {
+      let ref = dbRef;
+      for (let i = 0; i < pathSegments.length; i++) {
+        ref = (i % 2 === 0) ? ref.collection(pathSegments[i]) : ref.doc(pathSegments[i]);
+      }
+      return ref;
+    };
+    const getDoc = (ref) => ref.get();
+    const getDocs = (ref) => ref.get();
+    const setDoc = (ref, data, opts) => opts ? ref.set(data, opts) : ref.set(data);
+    const updateDoc = (ref, data) => ref.update(data);
+    const addDoc = (ref, data) => ref.add(data);
+    const deleteDoc = (ref) => ref.delete();
+    const onSnapshot = (ref, ...args) => ref.onSnapshot(...args);
+    const query = (ref, ...constraints) => {
+      let q = ref;
+      for (const c of constraints) { q = c(q); }
+      return q;
+    };
+    const where = (field, op, val) => (ref) => ref.where(field, op, val);
+    const orderBy = (field, dir) => (ref) => dir ? ref.orderBy(field, dir) : ref.orderBy(field);
+    const limit = (n) => (ref) => ref.limit(n);
+    const serverTimestamp = () => firebase.firestore.FieldValue.serverTimestamp();
+    const increment = (n) => firebase.firestore.FieldValue.increment(n);
+    const arrayUnion = (...items) => firebase.firestore.FieldValue.arrayUnion(...items);
+    const arrayRemove = (...items) => firebase.firestore.FieldValue.arrayRemove(...items);
+    const writeBatch = (dbRef) => dbRef.batch();
+    const runTransaction = (dbRef, fn) => dbRef.runTransaction(fn);
+    const onAuthStateChanged = (authRef, cb) => authRef.onAuthStateChanged(cb);
+    const signOut = (authRef) => authRef.signOut();
+    const updateProfile = (user, data) => user.updateProfile(data);
+    // ---------- End compat shims ----------
 
     // API Configuration
     const API_KEY = "oneplay_secure_123";
@@ -859,7 +894,7 @@ const API_BASE_URL = isLocal
       await ensureWalletDoc(user.uid);
       // populate UI
       const userSnap = await getDoc(doc(db, 'users', user.uid));
-      bindUserToUI(user, userSnap.exists() ? userSnap.data() : {});
+      bindUserToUI(user, userSnap.exists ? userSnap.data() : {});
       // start realtime listeners
       window.subscribeWallet(user.uid);
       subscribeToData(user.uid);
@@ -892,7 +927,7 @@ const API_BASE_URL = isLocal
 
       const walletRef = doc(db, 'wallets', userId);
       walletUnsub = onSnapshot(walletRef, (docSnap) => {
-        if (docSnap.exists()) {
+        if (docSnap.exists) {
           const data = docSnap.data();
 
           // Requirement 3: Add debug logs
@@ -940,7 +975,7 @@ const API_BASE_URL = isLocal
     const ensureUserDoc = async (user) => {
       const uRef = doc(db, "users", user.uid);
       const uSnap = await getDoc(uRef);
-      if (!uSnap.exists()) {
+      if (!uSnap.exists) {
         const userData = {
           uid: user.uid,
           email: user.email || null,
@@ -965,7 +1000,7 @@ const API_BASE_URL = isLocal
     const ensureWalletDoc = async (uid) => {
       const wRef = doc(db, "wallets", uid);
       const wSnap = await getDoc(wRef);
-      if (!wSnap.exists()) {
+      if (!wSnap.exists) {
         await setDoc(wRef, {
           uid,
           balance: 0,
@@ -1198,7 +1233,7 @@ const API_BASE_URL = isLocal
 
       const tRef = doc(db, "tournaments", tid);
       participantUnsubs[tid] = onSnapshot(tRef, (docSnap) => {
-        if (!docSnap.exists()) return;
+        if (!docSnap.exists) return;
         const data = docSnap.data();
         const participants = data.participants || 0;
         const maxPlayers = data.maxPlayers || 100;
@@ -1274,7 +1309,7 @@ const API_BASE_URL = isLocal
             delete activeTimers[tid];
             if (tdata.roomVisibleOnStart && roomBlock) {
               const tSnap2 = await getDoc(doc(db, "tournaments", tid));
-              const td2 = tSnap2.exists() ? tSnap2.data() : {};
+              const td2 = tSnap2.exists ? tSnap2.data() : {};
               const rd2 = td2.roomDetails || {};
               roomBlock.innerHTML = `<p class="text-green-400 font-bold">Room ID: ${rd2.roomId || '—'}</p><p class="text-green-400 mb-2 font-bold">Password: ${rd2.roomPass || '—'}</p>`;
             }
@@ -1296,7 +1331,7 @@ const API_BASE_URL = isLocal
             if (tdata.roomDetails && (tdata.roomVisibleToAllOnReveal || joined)) {
               // Fetch the latest room details just in case
               const tSnap2 = await getDoc(doc(db, "tournaments", tid));
-              const td2 = tSnap2.exists() ? tSnap2.data() : {};
+              const td2 = tSnap2.exists ? tSnap2.data() : {};
               const rd2 = td2.roomDetails || {};
               if (rd2.roomId && rd2.roomPass) {
                 roomBlock.innerHTML = `
@@ -1320,7 +1355,7 @@ const API_BASE_URL = isLocal
       if (!currentUser || !currentUser.uid) return false;
       const joinRef = doc(db, 'tournaments', tid, 'joinedUsers', currentUser.uid);
       const snap = await getDoc(joinRef);
-      return snap.exists();
+      return snap.exists;
     }
 
     window.setGameCategory = (cat) => {
@@ -1375,7 +1410,7 @@ const API_BASE_URL = isLocal
       try {
         await runTransaction(db, async (tx) => {
           const wSnap = await tx.get(wRef);
-          const wData = wSnap.exists() ? wSnap.data() : {};
+          const wData = wSnap.exists ? wSnap.data() : {};
           const totalBal = Number(wData.balance || 0);
           if (totalBal < fee) throw new Error("Insufficient Balance in Wallet.");
 
@@ -1874,7 +1909,7 @@ const API_BASE_URL = isLocal
 
     // ---------- Wallet Update Handler ----------
     const onWalletUpdate = (snap) => {
-      if (!snap.exists()) return;
+      if (!snap.exists) return;
       currentWallet = snap.data() || {};
 
       // Calculate a single canonical winnings value from all possible fields
@@ -1985,7 +2020,7 @@ const API_BASE_URL = isLocal
         const historyPromises = snap.docs.map(async (tDoc) => {
           const tData = tDoc.data();
           const joinSnap = await getDoc(doc(db, 'tournaments', tDoc.id, 'joinedUsers', uid));
-          if (joinSnap.exists()) {
+          if (joinSnap.exists) {
             const isWinner = tData.winners && tData.winners.some(w => w.uid === uid);
             return createHistoryCard(tDoc.id, tData, isWinner);
           }
@@ -2352,7 +2387,7 @@ const API_BASE_URL = isLocal
       if (btn) btn.classList.add('animate-spin');
       try {
         const wSnap = await getDoc(doc(db, 'wallets', currentUser.uid));
-        if (wSnap.exists()) {
+        if (wSnap.exists) {
           const wData = wSnap.data();
           const amountBig = formatRupee(wData.balance || 0);
           const elWB1 = el("walletBalance");
