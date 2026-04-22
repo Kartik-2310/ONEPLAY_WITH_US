@@ -7,15 +7,13 @@ let db;
 
 try {
   if (!admin.apps.length) {
-    // First priority: Render environment variable
+    // First priority: Render/production environment variable (full JSON string)
     if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
       });
-
-      console.log("✅ Firebase initialized from Render environment variable");
+      console.log("✅ Firebase initialized from environment variable");
     } else {
       // Fallback: Local JSON file
       const envPath =
@@ -23,30 +21,25 @@ try {
         "./config/serviceAccountKey.json";
 
       const serviceAccountPath = path.resolve(process.cwd(), envPath);
-
-      console.log(
-        `[Firebase] Checking for service account key at: ${serviceAccountPath}`
-      );
+      console.log(`[Firebase] Checking service account at: ${serviceAccountPath}`);
 
       if (!fs.existsSync(serviceAccountPath)) {
-        console.warn(
-          `[Firebase WARNING] Service account JSON NOT FOUND at ${serviceAccountPath}`
-        );
-      } else {
-        const serviceAccount = require(serviceAccountPath);
-
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount)
-        });
-
-        console.log("✅ Firebase initialized securely from local JSON file");
+        throw new Error(`Service account JSON NOT FOUND at ${serviceAccountPath}`);
       }
+
+      const serviceAccount = require(serviceAccountPath);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+      console.log("✅ Firebase initialized from local JSON file");
     }
   }
 
   db = admin.firestore();
+  console.log("✅ Firestore connected");
 } catch (err) {
   console.error("❌ Firebase initialization error:", err.message);
+  process.exit(1); // Stop server if Firebase fails — better than silent failures
 }
 
 module.exports = { admin, db };

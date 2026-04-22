@@ -1,6 +1,6 @@
 const { Cashfree, CFEnvironment } = require("cashfree-pg");
 
-// Set API credentials
+// Set API credentials from environment variables
 Cashfree.XClientId = process.env.CASHFREE_APP_ID;
 Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY;
 

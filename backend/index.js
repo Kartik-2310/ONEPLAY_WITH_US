@@ -1,7 +1,7 @@
 require('dotenv').config();
 console.log("ENV PATH:", process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
 
-// ⚠️ Warn if NOTIFY_URL is not set — webhook will never arrive
+// ⚠️ Warn if NOTIFY_URL is not set
 if (!process.env.NOTIFY_URL) {
   console.warn("⚠️ WARNING: NOTIFY_URL is not set in .env — Cashfree webhooks will go to a placeholder URL and never arrive!");
 } else {
@@ -11,7 +11,6 @@ if (!process.env.NOTIFY_URL) {
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const crypto = require('crypto');
 
 const app = express();
 
@@ -26,12 +25,12 @@ app.get("/", (req, res) => {
 
 // ✅ CORS
 app.use(cors({
-  origin: "*",
+  origin: process.env.FRONTEND_URL || "*",
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "x-api-key"]
 }));
 
-// ✅ JSON + RAW BODY (for webhook)
+// ✅ JSON + RAW BODY (for webhook signature verification)
 app.use(express.json({
   verify: (req, res, buf) => {
     req.rawBody = buf.toString();
@@ -39,29 +38,32 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ API KEY MIDDLEWARE WITH DEBUG LOGS
+// ✅ API KEY MIDDLEWARE
 app.use('/api', (req, res, next) => {
   console.log("\n━━━━━━━ API REQUEST ━━━━━━━");
   console.log("URL:", req.originalUrl);
-  console.log("PATH:", req.path);
   console.log("METHOD:", req.method);
-  console.log("HEADER API KEY:", req.headers['x-api-key']);
-  console.log("EXPECTED ENV API KEY:", process.env.API_KEY);
 
-  // ✅ FIXED: correct webhook path is /payment/cashfree/webhook
-  if (
-    req.path === '/payment/cashfree/webhook' ||
-    req.path === '/payment/cashfree/webhook/' ||
-    req.path === '/create-order' ||
-    req.path === '/create-order/'
-  ) {
-    console.log("✅ Webhook/Create-Order endpoint - skipping auth check\n");
+  // Skip auth for webhook and create-order (called by Cashfree / frontend without API key)
+  const openPaths = [
+    '/payment/cashfree/webhook',
+    '/payment/cashfree/webhook/',
+    '/payment/create-order',
+    '/payment/create-order/',
+    '/create-order',
+    '/create-order/'
+  ];
+
+  if (openPaths.includes(req.path)) {
+    console.log("✅ Open endpoint - skipping auth check\n");
     return next();
   }
 
   const apiKey = req.headers['x-api-key'];
-  if (apiKey !== process.env.API_KEY && apiKey !== "oneplay_secure_123") {
-    console.error("🔒 Unauthorized API request matched. Got key:", apiKey, "\n");
+
+  // ✅ FIXED: No hardcoded fallback key — only env variable
+  if (!apiKey || apiKey !== process.env.API_KEY) {
+    console.error("🔒 Unauthorized. Got key:", apiKey, "\n");
     return res.status(401).json({ success: false, message: "Unauthorized: Invalid API Key" });
   }
 
@@ -88,7 +90,7 @@ app.use('/api', (req, res) => {
   res.status(404).json({ success: false, message: "API Endpoint not found." });
 });
 
-// ✅ GLOBAL ERROR HANDLERx
+// ✅ GLOBAL ERROR HANDLER
 app.use((err, req, res, next) => {
   console.error("Server Error:", err);
   res.status(500).json({

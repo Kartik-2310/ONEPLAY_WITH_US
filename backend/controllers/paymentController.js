@@ -15,6 +15,13 @@ exports.createOrder = async (req, res) => {
       });
     }
 
+    if (isNaN(amount) || Number(amount) <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid amount"
+      });
+    }
+
     const orderDocRef = db.collection("orders").doc();
     const orderId = orderDocRef.id;
 
@@ -31,13 +38,14 @@ exports.createOrder = async (req, res) => {
         order_amount: Number(amount),
         order_currency: "INR",
         customer_details: {
-          customer_id: userId || "user_" + Date.now(),
+          customer_id: userId,
           customer_phone: safePhone,
           customer_email: safeEmail,
           customer_name: safeName
         },
         order_meta: {
-          return_url: "https://example.com/payment-status?order_id={order_id}",
+          // ✅ FIXED: Use actual frontend URL for return_url
+          return_url: `${process.env.FRONTEND_URL}/payment-status?order_id={order_id}`,
           notify_url: process.env.NOTIFY_URL
         }
       },
@@ -87,19 +95,28 @@ exports.webhook = async (req, res) => {
     // ---- Signature verification ----
     const timestamp = req.headers["x-webhook-timestamp"];
     const signature = req.headers["x-webhook-signature"];
-    const secret = process.env.CASHFREE_SECRET_KEY;
+
+    // ✅ FIXED: Use CASHFREE_WEBHOOK_SECRET (not payment secret key)
+    const secret = process.env.CASHFREE_WEBHOOK_SECRET;
 
     if (secret) {
       if (!timestamp || !signature) {
         console.error("❌ Webhook missing signature headers.");
         return res.status(403).json({ success: false, message: "Missing webhook signature headers" });
       }
+
       const rawBody = req.rawBody ?? JSON.stringify(req.body ?? {});
-      const expected = crypto.createHmac("sha256", secret).update(String(timestamp) + rawBody).digest("base64");
+      const expected = crypto
+        .createHmac("sha256", secret)
+        .update(String(timestamp) + rawBody)
+        .digest("base64");
+
       if (expected !== signature) {
         console.error("❌ Invalid webhook signature.");
         return res.status(403).json({ success: false, message: "Invalid webhook signature" });
       }
+    } else {
+      console.warn("⚠️ CASHFREE_WEBHOOK_SECRET not set — skipping signature check");
     }
 
     // ---- Validate webhook type ----
@@ -125,8 +142,7 @@ exports.webhook = async (req, res) => {
 
     console.log("Processing webhook for orderId:", orderId);
 
-    // ✅ FIXED: Idempotency check + status update inside ONE transaction
-    // This prevents double-credit when Cashfree sends duplicate webhooks
+    // ✅ Idempotency check + status update inside ONE transaction
     let alreadyProcessed = false;
     let userId = null;
     let amount = null;
@@ -141,7 +157,6 @@ exports.webhook = async (req, res) => {
 
       const orderData = orderSnap.data();
 
-      // If already paid, mark and skip — do NOT update wallet
       if (orderData.status === "paid") {
         alreadyProcessed = true;
         return;
@@ -154,7 +169,6 @@ exports.webhook = async (req, res) => {
         throw new Error("INVALID_ORDER_DATA");
       }
 
-      // Mark as paid inside transaction — second webhook will see "paid" and skip
       t.update(orderRef, {
         status: "paid",
         paidAt: new Date()
@@ -166,9 +180,9 @@ exports.webhook = async (req, res) => {
       return res.status(200).json({ success: true, message: "Already processed" });
     }
 
-    console.log("Updating order status and wallet for user:", userId, "amount:", amount);
+    console.log("Updating wallet for user:", userId, "amount:", amount);
 
-    // ✅ Update wallet AFTER transaction confirms this is first processing
+    // ✅ FIXED: firebaseService now exists at services/firebaseService.js
     const { updateDepositBalance, createTransaction } = require("../services/firebaseService");
 
     await updateDepositBalance(userId, amount);

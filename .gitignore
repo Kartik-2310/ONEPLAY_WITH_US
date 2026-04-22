@@ -62,4 +62,6 @@ ui-debug.log
 
 .env
 
-serviceAccountKey.jsonserviceAccountKey.json
+serviceAccountKey.json
+.env
+backend/config/serviceAccountKey.json

@@ -1,9 +1,7 @@
 const express = require("express");
 const router = express.Router();
+const { createWithdraw } = require("../controllers/withdrawalController");
 
-const { createOrder, webhook } = require("../controllers/paymentController");
-
-router.post("/create-order", createOrder); // Auth middleware applied globally in index.js
-router.post("/cashfree/webhook", webhook);
+router.post("/withdraw", createWithdraw);
 
 module.exports = router;

@@ -1,155 +1,80 @@
-const { db } = require('../config/firebase');
-
-// Guard: fail loudly if Firebase not initialized
-if (!db) {
-  throw new Error("❌ Firebase DB not initialized — check FIREBASE_SERVICE_ACCOUNT_PATH");
-}
-
-const walletsCollection = db.collection('wallets');
-const transactionsCollection = db.collection('transactions');
-const usersCollection = db.collection('users');
+const { db, admin } = require('../config/firebase');
 
 /**
- * Get user wallet balance
+ * Adds deposit amount to user's wallet balance.
+ * Uses a Firestore transaction to safely increment balance.
  */
-const getWallet = async (userId) => {
-  const walletDoc = await walletsCollection.doc(userId).get();
-  if (!walletDoc.exists) {
-    return { balance: 0 };
+exports.updateDepositBalance = async (userId, amount) => {
+  if (!userId || !amount || isNaN(amount) || amount <= 0) {
+    throw new Error(`Invalid userId or amount: userId=${userId}, amount=${amount}`);
   }
-  return walletDoc.data();
-};
 
-const updateWalletBalance = async (userId, amountToAdd) => {
-  try {
-    console.log("🔥 Updating wallet:", userId, amountToAdd);
+  const walletRef = db.collection('wallets').doc(userId);
 
-    await db.runTransaction(async (t) => {
-      const ref = db.collection("wallets").doc(userId);
-      const doc = await t.get(ref);
+  await db.runTransaction(async (t) => {
+    const walletSnap = await t.get(walletRef);
 
-      if (!doc.exists) {
-        console.log("🆕 Creating new wallet");
-        t.set(ref, {
-          balance: amountToAdd,
-          deposit: amountToAdd,
-          winnings: 0,
-          bonus: 0,
-          updatedAt: new Date()
-        });
-      } else {
-        const d = doc.data();
-        console.log("💰 Current balance:", d.balance || 0);
-        t.update(ref, {
-          balance: (d.balance || 0) + amountToAdd,
-          deposit: (d.deposit || 0) + amountToAdd,
-          updatedAt: new Date()
-        });
-      }
-    });
+    if (walletSnap.exists) {
+      const data = walletSnap.data();
+      const currentBalance = Number(data.balance || 0);
+      const currentDeposit = Number(data.deposit || 0);
 
-    console.log("✅ Wallet DB update DONE");
+      t.update(walletRef, {
+        balance: currentBalance + amount,
+        deposit: currentDeposit + amount,
+        updatedAt: new Date()
+      });
+    } else {
+      // Create wallet if it doesn't exist
+      t.set(walletRef, {
+        userId,
+        balance: amount,
+        deposit: amount,
+        winnings: 0,
+        withdrawable: 0,
+        updatedAt: new Date(),
+        createdAt: new Date()
+      });
+    }
+  });
 
-  } catch (error) {
-    console.error("❌ Wallet update FAILED:", error);
-    throw error;
-  }
+  console.log(`✅ Wallet updated for userId=${userId}, deposited ₹${amount}`);
 };
 
 /**
- * ✅ FIXED: Update user's deposit balance in the WALLETS collection
- * Previously this was wrongly updating users/{uid}.depositBalance
- * Now correctly updates wallets/{uid}.balance and wallets/{uid}.deposit
+ * Creates a transaction record in Firestore under user's transactions subcollection
+ * and also in a top-level 'transactions' collection.
  */
-const updateDepositBalance = async (userId, amountToAdd) => {
-  try {
-    console.log("🔥 Updating deposit balance in wallet:", userId, amountToAdd);
-
-    const walletRef = db.collection("wallets").doc(userId);
-
-    await db.runTransaction(async (t) => {
-      const walletDoc = await t.get(walletRef);
-
-      if (!walletDoc.exists) {
-        // Create wallet if it doesn't exist yet
-        console.log("🆕 Wallet not found, creating new wallet for user:", userId);
-        t.set(walletRef, {
-          balance: amountToAdd,
-          deposit: amountToAdd,
-          winnings: 0,
-          bonus: 0,
-          updatedAt: new Date()
-        });
-      } else {
-        const data = walletDoc.data();
-        const currentBalance = Number(data.balance || 0);
-        const currentDeposit = Number(data.deposit || 0);
-
-        console.log("💰 Wallet before update — balance:", currentBalance, "deposit:", currentDeposit);
-
-        t.update(walletRef, {
-          balance: currentBalance + amountToAdd,
-          deposit: currentDeposit + amountToAdd,
-          updatedAt: new Date()
-        });
-      }
-    });
-
-    console.log("✅ Deposit balance updated in wallet for user:", userId);
-
-  } catch (error) {
-    console.error("❌ Deposit balance update failed:", error);
-    throw error;
+exports.createTransaction = async (userId, transactionData) => {
+  if (!userId) {
+    throw new Error('userId is required to create a transaction');
   }
-};
 
-/**
- * Record a transaction
- */
-const createTransaction = async (userId, data) => {
-  await transactionsCollection.add({
+  const batch = db.batch();
+
+  // Top-level transactions collection
+  const globalTxRef = db.collection('transactions').doc();
+  batch.set(globalTxRef, {
+    ...transactionData,
     userId,
-    ...data,
-    createdAt: new Date()
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
   });
-};
 
-/**
- * Deduct from wallet winnings if balance is sufficient
- * ✅ FIXED: only checks winnings (not balance) for withdrawal eligibility
- */
-const deductWalletBalance = async (userId, amountToDeduct) => {
-  const walletRef = walletsCollection.doc(userId);
+  // User's subcollection for quick lookup
+  const userTxRef = db
+    .collection('wallets')
+    .doc(userId)
+    .collection('transactions')
+    .doc(globalTxRef.id);
 
-  return await db.runTransaction(async (t) => {
-    const doc = await t.get(walletRef);
-    if (!doc.exists) {
-      throw new Error('Wallet not found');
-    }
-
-    const w = doc.data();
-    const currentBalance = Number(w.balance || 0);
-    const currentWinnings = Number(w.winnings || 0);
-
-    // ✅ Only gate on winnings — not balance (balance includes deposits)
-    if (currentWinnings < amountToDeduct) {
-      throw new Error('Insufficient winnings balance');
-    }
-
-    t.update(walletRef, {
-      balance: Math.max(0, currentBalance - amountToDeduct),
-      winnings: currentWinnings - amountToDeduct,
-      updatedAt: new Date()
-    });
-
-    return currentWinnings - amountToDeduct;
+  batch.set(userTxRef, {
+    ...transactionData,
+    userId,
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
   });
-};
 
-module.exports = {
-  getWallet,
-  updateWalletBalance,
-  updateDepositBalance,
-  createTransaction,
-  deductWalletBalance
+  await batch.commit();
+
+  console.log(`✅ Transaction recorded for userId=${userId}, type=${transactionData.type}, amount=₹${transactionData.amount}`);
+  return globalTxRef.id;
 };
