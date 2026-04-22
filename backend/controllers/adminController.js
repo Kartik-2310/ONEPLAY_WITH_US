@@ -22,36 +22,26 @@ const getCashfreePayoutToken = async () => {
   return response.data.data.token;
 };
 
-// ✅ FIXED: approveWithdraw now actually initiates Cashfree Payout
 exports.approveWithdraw = async (req, res) => {
   console.log("[approveWithdraw] Received request:", { body: req.body, params: req.params });
 
   try {
     const withdrawalId = req.params?.id || req.body?.withdrawalId;
     if (!withdrawalId) {
-      return res.status(400).json({
-        success: false,
-        message: "Withdrawal ID is required"
-      });
+      return res.status(400).json({ success: false, message: "Withdrawal ID is required" });
     }
 
     const withdrawalRef = db.collection("withdrawRequests").doc(withdrawalId);
     const withdrawalDoc = await withdrawalRef.get();
 
     if (!withdrawalDoc.exists) {
-      return res.status(404).json({
-        success: false,
-        message: "Withdrawal not found"
-      });
+      return res.status(404).json({ success: false, message: "Withdrawal not found" });
     }
 
     const data = withdrawalDoc.data();
 
     if (data.status !== 'pending') {
-      return res.status(400).json({
-        success: false,
-        message: `Withdrawal already ${data.status}`
-      });
+      return res.status(400).json({ success: false, message: `Withdrawal already ${data.status}` });
     }
 
     const upiId = data.upiId;
@@ -132,22 +122,15 @@ exports.approveWithdraw = async (req, res) => {
         });
       } catch (notifErr) {
         console.error("[approveWithdraw] Notification failed:", notifErr.message);
-        // Non-fatal — don't block the response
       }
     }
 
     console.log(`✅ Approved and paid withdrawal ${withdrawalId} for user ${targetUid}`);
-    return res.status(200).json({
-      success: true,
-      message: "Withdrawal approved and payout initiated"
-    });
+    return res.status(200).json({ success: true, message: "Withdrawal approved and payout initiated" });
 
   } catch (error) {
     console.error("approveWithdraw error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Unknown error"
-    });
+    return res.status(500).json({ success: false, message: error.message || "Unknown error" });
   }
 };
 
@@ -177,18 +160,11 @@ exports.getPendingWithdrawals = async (req, res) => {
     });
 
     console.log("Pending withdrawals count:", withdrawals.length);
-
-    return res.status(200).json({
-      success: true,
-      withdrawals
-    });
+    return res.status(200).json({ success: true, withdrawals });
 
   } catch (error) {
     console.error("getPendingWithdrawals error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Failed to fetch pending withdrawals"
-    });
+    return res.status(500).json({ success: false, message: error.message || "Failed to fetch pending withdrawals" });
   }
 };
 
@@ -256,7 +232,6 @@ exports.rejectWithdraw = async (req, res) => {
         rejectReason: rejectReason || 'Rejected by admin'
       });
 
-      // Notify user
       if (targetUid) {
         const notifRef = db.collection('notifications').doc();
         t.set(notifRef, {

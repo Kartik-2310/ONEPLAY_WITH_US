@@ -22,6 +22,14 @@ exports.createOrder = async (req, res) => {
       });
     }
 
+    // ✅ Check Firebase is initialized
+    if (!db) {
+      return res.status(503).json({
+        success: false,
+        message: "Service temporarily unavailable - Firebase not initialized. Check Render environment variables."
+      });
+    }
+
     const orderDocRef = db.collection("orders").doc();
     const orderId = orderDocRef.id;
 
@@ -44,7 +52,6 @@ exports.createOrder = async (req, res) => {
           customer_name: safeName
         },
         order_meta: {
-          // ✅ FIXED: Use actual frontend URL for return_url
           return_url: `${process.env.FRONTEND_URL}/payment-status?order_id={order_id}`,
           notify_url: process.env.NOTIFY_URL
         }
@@ -92,11 +99,8 @@ exports.webhook = async (req, res) => {
   try {
     const payload = req.body || {};
 
-    // ---- Signature verification ----
     const timestamp = req.headers["x-webhook-timestamp"];
     const signature = req.headers["x-webhook-signature"];
-
-    // ✅ FIXED: Use CASHFREE_WEBHOOK_SECRET (not payment secret key)
     const secret = process.env.CASHFREE_WEBHOOK_SECRET;
 
     if (secret) {
@@ -119,7 +123,6 @@ exports.webhook = async (req, res) => {
       console.warn("⚠️ CASHFREE_WEBHOOK_SECRET not set — skipping signature check");
     }
 
-    // ---- Validate webhook type ----
     const type = payload.type;
     const data = payload.data || {};
     const payment = data.payment || {};
@@ -142,7 +145,6 @@ exports.webhook = async (req, res) => {
 
     console.log("Processing webhook for orderId:", orderId);
 
-    // ✅ Idempotency check + status update inside ONE transaction
     let alreadyProcessed = false;
     let userId = null;
     let amount = null;
@@ -151,9 +153,7 @@ exports.webhook = async (req, res) => {
       const orderRef = db.collection("orders").doc(orderId);
       const orderSnap = await t.get(orderRef);
 
-      if (!orderSnap.exists) {
-        throw new Error("ORDER_NOT_FOUND");
-      }
+      if (!orderSnap.exists) throw new Error("ORDER_NOT_FOUND");
 
       const orderData = orderSnap.data();
 
@@ -165,9 +165,7 @@ exports.webhook = async (req, res) => {
       userId = orderData.userId;
       amount = orderData.amount;
 
-      if (!userId || !amount) {
-        throw new Error("INVALID_ORDER_DATA");
-      }
+      if (!userId || !amount) throw new Error("INVALID_ORDER_DATA");
 
       t.update(orderRef, {
         status: "paid",
@@ -182,7 +180,6 @@ exports.webhook = async (req, res) => {
 
     console.log("Updating wallet for user:", userId, "amount:", amount);
 
-    // ✅ FIXED: firebaseService now exists at services/firebaseService.js
     const { updateDepositBalance, createTransaction } = require("../services/firebaseService");
 
     await updateDepositBalance(userId, amount);

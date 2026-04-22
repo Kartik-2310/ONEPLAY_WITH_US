@@ -1,7 +1,7 @@
 const admin = require('firebase-admin');
 const { db } = require('../config/firebase');
 
-// ✅ FIXED: Extended list of valid UPI handles
+// ✅ Extended list of valid UPI handles
 const VALID_UPI_HANDLES = [
   "upi", "ybl", "okaxis", "okhdfcbank", "okicici", "oksbi",
   "paytm", "ibl", "axl", "axisbank", "hdfcbank", "icici",
@@ -20,7 +20,7 @@ exports.createWithdraw = async (req, res) => {
     console.log("📩 Withdrawal API called:");
     console.log("Body params:", req.body);
 
-    // ⚠️ CHECK: Firebase credentials loaded?
+    // ✅ CHECK: Firebase credentials loaded?
     if (!db) {
       console.error("❌ CRITICAL: Firestore not initialized. Check Firebase credentials on Render!");
       return res.status(503).json({
@@ -128,7 +128,6 @@ exports.createWithdraw = async (req, res) => {
     console.error('Error Message:', error.message);
     console.error('='.repeat(60) + '\n');
 
-    // Better error messages for common issues
     let statusCode = 400;
     let userMessage = error.message || 'Withdrawal failed';
 

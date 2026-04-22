@@ -1,57 +1,63 @@
-require('dotenv').config();
+require("dotenv").config();
 console.log("ENV PATH:", process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
 
 // ⚠️ Warn if NOTIFY_URL is not set
 if (!process.env.NOTIFY_URL) {
-  console.warn("⚠️ WARNING: NOTIFY_URL is not set in .env — Cashfree webhooks will go to a placeholder URL and never arrive!");
+  console.warn(
+    "⚠️ WARNING: NOTIFY_URL is not set in .env — Cashfree webhooks will not arrive!"
+  );
 } else {
   console.log("✅ NOTIFY_URL:", process.env.NOTIFY_URL);
 }
 
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
+const express = require("express");
+const cors = require("cors");
+const path = require("path");
 
 const app = express();
 
-const paymentRoutes = require('./routes/paymentRoutes');
-const withdrawalRoutes = require('./routes/withdrawalRoutes');
-const adminRoutes = require('./routes/adminRoutes');
-const { createOrder } = require('./controllers/paymentController');
+const paymentRoutes = require("./routes/paymentRoutes");
+const withdrawalRoutes = require("./routes/withdrawalRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+const { createOrder } = require("./controllers/paymentController");
 
 app.get("/", (req, res) => {
   res.send("🚀 OnePlay Backend is Live!");
 });
 
 // ✅ CORS
-app.use(cors({
-  origin: process.env.FRONTEND_URL || "*",
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "x-api-key"]
-}));
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "*",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "x-api-key"]
+  })
+);
 
 // ✅ JSON + RAW BODY (for webhook signature verification)
-app.use(express.json({
-  verify: (req, res, buf) => {
-    req.rawBody = buf.toString();
-  }
-}));
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString();
+    }
+  })
+);
 app.use(express.urlencoded({ extended: true }));
 
 // ✅ API KEY MIDDLEWARE
-app.use('/api', (req, res, next) => {
+app.use("/api", (req, res, next) => {
   console.log("\n━━━━━━━ API REQUEST ━━━━━━━");
   console.log("URL:", req.originalUrl);
   console.log("METHOD:", req.method);
 
   // Skip auth for webhook and create-order (called by Cashfree / frontend without API key)
   const openPaths = [
-    '/payment/cashfree/webhook',
-    '/payment/cashfree/webhook/',
-    '/payment/create-order',
-    '/payment/create-order/',
-    '/create-order',
-    '/create-order/'
+    "/payment/cashfree/webhook",
+    "/payment/cashfree/webhook/",
+    "/payment/create-order",
+    "/payment/create-order/",
+    "/create-order",
+    "/create-order/"
   ];
 
   if (openPaths.includes(req.path)) {
@@ -59,9 +65,8 @@ app.use('/api', (req, res, next) => {
     return next();
   }
 
-  const apiKey = req.headers['x-api-key'];
+  const apiKey = req.headers["x-api-key"];
 
-  // ✅ FIXED: No hardcoded fallback key — only env variable
   if (!apiKey || apiKey !== process.env.API_KEY) {
     console.error("🔒 Unauthorized. Got key:", apiKey, "\n");
     return res.status(401).json({ success: false, message: "Unauthorized: Invalid API Key" });
@@ -72,21 +77,21 @@ app.use('/api', (req, res, next) => {
 });
 
 // ✅ ROUTES
-app.use('/api/payment', paymentRoutes);
-app.post('/api/create-order', createOrder);
-app.use('/api', withdrawalRoutes);
-app.use('/api', adminRoutes);
+app.use("/api/payment", paymentRoutes);    // /api/payment/create-order  &  /api/payment/cashfree/webhook
+app.post("/api/create-order", createOrder); // alias kept for backward compat
+app.use("/api", withdrawalRoutes);           // /api/withdraw
+app.use("/api", adminRoutes);                // /api/admin/...
 
-// ✅ SERVE FRONTEND
-app.use(express.static(path.join(__dirname, '../')));
+// ✅ SERVE FRONTEND STATIC FILES
+app.use(express.static(path.join(__dirname, "../")));
 
 // ✅ HEALTH CHECK
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', message: 'OnePlay Backend is running' });
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "OK", message: "OnePlay Backend is running" });
 });
 
 // ✅ 404 fallback for /api
-app.use('/api', (req, res) => {
+app.use("/api", (req, res) => {
   res.status(404).json({ success: false, message: "API Endpoint not found." });
 });
 
