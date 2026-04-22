@@ -20,6 +20,16 @@ exports.createWithdraw = async (req, res) => {
     console.log("📩 Withdrawal API called:");
     console.log("Body params:", req.body);
 
+    // ⚠️ CHECK: Firebase credentials loaded?
+    if (!db) {
+      console.error("❌ CRITICAL: Firestore not initialized. Check Firebase credentials on Render!");
+      return res.status(503).json({
+        success: false,
+        message: "Service temporarily unavailable - Firebase not initialized",
+        debug: "Check Render environment variables: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY"
+      });
+    }
+
     const { userId, amount, upiId, upi, username, name, email } = req.body;
 
     const uid = userId || req.body.uid;
@@ -53,7 +63,7 @@ exports.createWithdraw = async (req, res) => {
     const withdrawRef = db.collection('withdrawRequests').doc();
     const requestId = withdrawRef.id;
 
-    console.log(`⏳ Processing withdrawal for UID: ${uid}, amount: ${parsedAmount}, requestId: ${requestId}`);
+    console.log(`⏳ Processing withdrawal for UID: ${uid}, amount: ₹${parsedAmount}, requestId: ${requestId}`);
 
     await db.runTransaction(async (t) => {
       const walletRef = db.collection('wallets').doc(uid);
@@ -72,7 +82,7 @@ exports.createWithdraw = async (req, res) => {
         walletData.winningsBalance ?? 0
       );
 
-      console.log(`Wallet before withdrawal: balance=${currentBalance}, winnings=${currentWinnings}`);
+      console.log(`Wallet before withdrawal: balance=₹${currentBalance}, winnings=₹${currentWinnings}`);
 
       if (currentWinnings < parsedAmount) {
         throw new Error('Insufficient winnings balance');
@@ -102,7 +112,8 @@ exports.createWithdraw = async (req, res) => {
         status: 'pending',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         approvedAt: null,
-        rejectedAt: null
+        rejectedAt: null,
+        requestId: requestId
       });
     });
 
@@ -110,7 +121,30 @@ exports.createWithdraw = async (req, res) => {
     res.json({ success: true, message: 'Withdrawal request submitted', requestId });
 
   } catch (error) {
-    console.error('Withdraw Error:', error);
-    res.status(400).json({ success: false, message: error.message || 'Withdraw failed' });
+    console.error('\n' + '='.repeat(60));
+    console.error('❌ WITHDRAWAL ERROR');
+    console.error('='.repeat(60));
+    console.error('Error Code:', error.code);
+    console.error('Error Message:', error.message);
+    console.error('='.repeat(60) + '\n');
+
+    // Better error messages for common issues
+    let statusCode = 400;
+    let userMessage = error.message || 'Withdrawal failed';
+
+    if (error.code === 'UNAUTHENTICATED' || error.message?.includes('authentication')) {
+      statusCode = 503;
+      userMessage = 'Service temporarily unavailable';
+      console.error('⚠️  This is a Firebase authentication error!');
+      console.error('Fix: Check FIREBASE_PRIVATE_KEY and other credentials on Render.');
+    } else if (error.message?.includes('Insufficient')) {
+      statusCode = 400;
+      userMessage = error.message;
+    } else if (error.message?.includes('Wallet not found')) {
+      statusCode = 404;
+      userMessage = 'User wallet not found';
+    }
+
+    res.status(statusCode).json({ success: false, message: userMessage });
   }
 };
