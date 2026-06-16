@@ -726,9 +726,7 @@ const isLocal =
   window.location.hostname === "localhost" ||
   window.location.hostname === "127.0.0.1";
 
-const API_BASE_URL = isLocal
-  ? "http://localhost:5000"
-  : "https://oneplay-with-us.onrender.com";
+const API_BASE_URL = "https://oneplay-with-us.onrender.com";
 
     // ---------- GLOBAL STATE ----------
     let currentUser = null;
