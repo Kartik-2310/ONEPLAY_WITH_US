@@ -4,19 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ONEPLAY — Esports Login</title>
-<script src="https://cdn.tailwindcss.com"></script>
 <style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
 html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
   background: #000;
   color: #fff;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  overflow-x: hidden;
 }
 
-/* === INTRO LOGO ANIMATION === */
+/* ===== INTRO ===== */
 #intro {
   position: fixed;
   inset: 0;
@@ -24,207 +23,745 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 50;
-  animation: fadeOut 5.2s ease forwards;
+  z-index: 100;
+  animation: fadeOut 1s ease forwards;
   animation-delay: 3.8s;
 }
-@keyframes fadeOut {
-  to { opacity: 0; visibility: hidden; }
-}
+@keyframes fadeOut { to { opacity: 0; pointer-events: none; visibility: hidden; } }
 .logo-text {
-  font-size: 4rem;
+  font-size: clamp(2.5rem, 10vw, 5rem);
   font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 4px;
+  letter-spacing: 6px;
   background: linear-gradient(90deg, #ffb300, #ff3300, #0077ff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: logoFlash 3s ease forwards;
-  text-shadow: 0 0 20px #ffb300, 0 0 50px #ff3300;
 }
 @keyframes logoFlash {
-  0% { opacity: 0; transform: scale(0.6); filter: blur(10px); }
-  50% { opacity: 1; transform: scale(1.3); filter: blur(0); text-shadow: 0 0 60px #ff4500; }
-  100% { transform: scale(1); text-shadow: 0 0 80px #ffb300, 0 0 120px #0077ff; }
+  0%   { opacity: 0; transform: scale(0.6); filter: blur(10px); }
+  50%  { opacity: 1; transform: scale(1.3); filter: blur(0); }
+  100% { transform: scale(1); }
 }
 
-/* === BACKGROUND VIDEO === */
+/* ===== BG VIDEO ===== */
 video.bg {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
+  width: 100%; height: 100%;
   object-fit: cover;
   z-index: -2;
-  filter: brightness(0.5) contrast(1.3);
+  filter: brightness(0.4) contrast(1.3);
 }
 .overlay {
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at 50% 50%, rgba(255,100,0,0.1), rgba(0,0,40,0.9));
+  background: radial-gradient(circle at 50% 40%, rgba(255,100,0,0.08), rgba(0,0,30,0.92));
   z-index: -1;
 }
 
-/* === LOGIN CARD === */
-.card {
-  position: relative;
-  width: 90%;
-  max-width: 420px;
-  background: rgba(255,255,255,0.07);
+/* ===== NAV ===== */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: rgba(0,0,0,0.7);
   backdrop-filter: blur(14px);
-  border-radius: 22px;
-  padding: 45px 38px;
-  text-align: center;
-  border: 1px solid rgba(255,150,0,0.4);
-  box-shadow: 0 0 40px rgba(255,100,0,0.25);
-  animation: fadeUp 1.8s ease forwards;
+  border-bottom: 1px solid rgba(255,150,0,0.15);
 }
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(70px); }
-  to { opacity: 1; transform: translateY(0); }
+.nav-logo {
+  font-size: 1.4rem;
+  font-weight: 900;
+  letter-spacing: 4px;
+  background: linear-gradient(90deg, #ffb300, #ff3300, #0077ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.nav-links { display: flex; gap: 6px; flex-wrap: wrap; }
+.nav-links button {
+  background: transparent;
+  border: 1px solid rgba(255,150,0,0.3);
+  color: #ffb300;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+.nav-links button:hover, .nav-links button.active {
+  background: rgba(255,150,0,0.12);
+  box-shadow: 0 0 12px rgba(255,100,0,0.3);
+  color: #fff;
 }
 
-/* Energy border */
+/* ===== PAGES WRAPPER ===== */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ===== LOGIN PAGE ===== */
+#page-login {
+  min-height: calc(100vh - 55px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px 60px;
+}
+#page-login.active { display: flex; }
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(255,255,255,0.07);
+  backdrop-filter: blur(16px);
+  border-radius: 22px;
+  padding: 40px 32px;
+  text-align: center;
+  border: 1px solid rgba(255,150,0,0.35);
+  box-shadow: 0 0 50px rgba(255,100,0,0.15);
+  position: relative;
+  animation: fadeUp 1s ease forwards;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 .card::before {
   content: "";
   position: absolute;
   inset: -2px;
-  border-radius: 25px;
+  border-radius: 24px;
   background: linear-gradient(130deg, #ffb300, #ff3300, #0077ff);
   background-size: 400% 400%;
   animation: borderGlow 6s linear infinite;
   z-index: -1;
-  opacity: 0.5;
+  opacity: 0.45;
 }
 @keyframes borderGlow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
 
-/* === INPUTS === */
-input {
-  width: 100%;
-  display: block;
-  margin-top: 10px;
-  margin-bottom: 25px;
-  padding: 16px;
-  background: rgba(255,255,255,0.12);
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 12px;
-  color: #fff;
-  font-size: 1.05rem;
-  letter-spacing: 0.5px;
-  transition: all 0.3s ease;
-}
-input:focus {
-  background: rgba(255,255,255,0.22);
-  border-color: rgba(255,100,0,0.7);
-  outline: none;
-  transform: scale(1.03);
-  box-shadow: 0 0 20px rgba(255,100,0,0.9), 0 0 35px rgba(0,100,255,0.8);
+.card h1 {
+  font-size: clamp(1.3rem, 4vw, 1.7rem);
+  font-weight: 900;
+  background: linear-gradient(90deg, #ffb300, #ff3300, #0077ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 28px;
+  letter-spacing: 1px;
 }
 
-/* === BUTTONS === */
-.btn {
+.input-wrap { text-align: left; margin-bottom: 16px; }
+.input-wrap label {
+  display: block;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 6px;
+}
+.input-wrap input {
   width: 100%;
-  margin-top: 15px;
-  padding: 13px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 11px;
+  color: #fff;
+  font-size: 0.97rem;
+  outline: none;
+  transition: all 0.3s;
+}
+.input-wrap input:focus {
+  border-color: rgba(255,100,0,0.7);
+  background: rgba(255,255,255,0.16);
+  box-shadow: 0 0 18px rgba(255,100,0,0.5);
+}
+
+.btn-main {
+  width: 100%;
+  padding: 14px;
   border: none;
-  border-radius: 10px;
+  border-radius: 11px;
   background: linear-gradient(90deg, #ffb300, #ff3300, #0077ff);
   color: #000;
-  font-weight: 700;
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 1px;
   cursor: pointer;
-  transition: 0.3s;
+  transition: all 0.3s;
+  margin-top: 6px;
   position: relative;
   overflow: hidden;
 }
-.btn:hover {
-  transform: scale(1.04);
-  box-shadow: 0 0 40px rgba(255,100,0,0.8);
+.btn-main:hover { transform: scale(1.03); box-shadow: 0 0 30px rgba(255,100,0,0.6); }
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: rgba(255,255,255,0.25);
+  font-size: 0.82rem;
 }
-.btn::after {
+.divider::before, .divider::after {
   content: "";
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: rgba(255,255,255,0.3);
-  transition: all 0.3s ease;
-}
-.btn:hover::after {
-  left: 100%;
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,0.12);
 }
 
-/* === GOOGLE BUTTON === */
 .google-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   background: #fff;
-  color: #000;
-  border-radius: 12px;
-  padding: 14px 0;
+  color: #111;
+  border: none;
+  border-radius: 11px;
+  padding: 13px 0;
   width: 100%;
-  text-align: center;
+  font-weight: 700;
+  font-size: 0.97rem;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.google-btn:hover { transform: scale(1.03); box-shadow: 0 0 25px rgba(255,255,255,0.4); }
+.google-btn img { width: 22px; }
+
+.switch-text {
+  margin-top: 18px;
+  font-size: 0.88rem;
+  color: rgba(255,255,255,0.45);
+}
+.switch-text span {
+  color: #ffb300;
+  cursor: pointer;
   font-weight: 600;
-  margin: 22px auto 0;
-  transition: all 0.3s ease;
-  box-shadow: 0 0 25px rgba(255,255,255,0.1);
-}
-.google-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 35px rgba(255,255,255,0.6);
-}
-.google-btn img {
-  width: 24px;
-  height: 24px;
+  text-decoration: underline;
 }
 
-/* === SMALL TEXT === */
-.switch {
-  margin-top: 16px;
-  font-size: 0.9rem;
-  color: #ffb300;
-  text-decoration: underline;
+#msg { margin-top: 12px; font-size: 0.88rem; min-height: 18px; }
+
+/* Policy footer links in login */
+.policy-footer {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.policy-footer button {
+  background: transparent;
+  border: none;
+  color: rgba(255,179,0,0.6);
+  font-size: 0.78rem;
   cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  transition: color 0.2s;
 }
-#msg {
-  margin-top: 12px;
+.policy-footer button:hover { color: #ffb300; }
+
+/* ===== POLICY PAGES ===== */
+.policy-page {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 50px 20px 80px;
+}
+.policy-hero {
+  text-align: center;
+  margin-bottom: 44px;
+}
+.policy-hero h1 {
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  font-weight: 900;
+  background: linear-gradient(90deg, #ffb300, #ff3300, #0077ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 2px;
+}
+.policy-hero p {
+  margin-top: 10px;
+  color: rgba(255,255,255,0.45);
+  font-size: 0.92rem;
+}
+.accent-bar {
+  width: 120px;
+  height: 3px;
+  background: linear-gradient(90deg, #ffb300, #ff3300, #0077ff);
+  border-radius: 2px;
+  margin: 16px auto 0;
+}
+
+.section-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,150,0,0.2);
+  border-radius: 16px;
+  padding: 28px 28px 28px 36px;
+  margin-bottom: 20px;
+  position: relative;
+}
+.section-card::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #ffb300, #ff3300, #0077ff);
+  border-radius: 4px 0 0 4px;
+}
+.section-card h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffb300;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  margin-bottom: 12px;
+}
+.section-card p, .section-card li {
+  font-size: 0.95rem;
+  color: rgba(255,255,255,0.7);
+  line-height: 1.8;
+}
+.section-card ul, .section-card ol {
+  padding-left: 20px;
+  margin-top: 8px;
+}
+.section-card li { margin-bottom: 6px; }
+.section-card a { color: #0099ff; text-decoration: none; }
+.section-card a:hover { text-decoration: underline; }
+
+/* Contact Form */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 18px;
+}
+@media (max-width: 550px) { .form-grid { grid-template-columns: 1fr; } }
+.fg { display: flex; flex-direction: column; gap: 6px; }
+.fg label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.4); }
+.fg input, .fg textarea, .fg select {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #fff;
+  font-size: 0.93rem;
+  outline: none;
+  transition: all 0.3s;
+  font-family: inherit;
+  resize: vertical;
+}
+.fg input:focus, .fg textarea:focus, .fg select:focus {
+  border-color: rgba(255,100,0,0.6);
+  box-shadow: 0 0 14px rgba(255,100,0,0.3);
+}
+.fg select option { background: #111; }
+.fg.full { grid-column: 1 / -1; }
+.form-submit {
+  grid-column: 1 / -1;
+  padding: 14px;
+  border: none;
+  border-radius: 11px;
+  background: linear-gradient(90deg, #ffb300, #ff3300, #0077ff);
+  color: #000;
+  font-weight: 800;
+  font-size: 0.97rem;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.form-submit:hover { transform: scale(1.02); box-shadow: 0 0 24px rgba(255,100,0,0.5); }
+
+/* Products Grid */
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+.product-item {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,150,0,0.2);
+  border-radius: 12px;
+  padding: 18px 16px;
+  text-align: center;
+}
+.product-item .icon { font-size: 2rem; margin-bottom: 8px; }
+.product-item h3 { font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 4px; }
+.product-item .price { font-size: 1.1rem; font-weight: 800; color: #ffb300; }
+.product-item .desc { font-size: 0.78rem; color: rgba(255,255,255,0.45); margin-top: 4px; }
+
+/* ===== GLOBAL FOOTER ===== */
+.site-footer {
+  text-align: center;
+  padding: 24px 20px;
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.25);
+  border-top: 1px solid rgba(255,150,0,0.1);
+}
+.site-footer a { color: #ffb300; text-decoration: none; margin: 0 8px; }
+.site-footer a:hover { text-decoration: underline; }
+
+/* Highlight box */
+.highlight-box {
+  background: rgba(255,179,0,0.07);
+  border: 1px solid rgba(255,179,0,0.25);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-top: 14px;
   font-size: 0.9rem;
+  color: rgba(255,255,255,0.65);
 }
+.highlight-box strong { color: #ffb300; }
 </style>
 </head>
+<body>
 
-<body class="flex items-center justify-center min-h-screen">
-
+<!-- INTRO -->
 <div id="intro"><div class="logo-text">ONEPLAY</div></div>
 
+<!-- BG -->
 <video class="bg" autoplay muted loop playsinline>
   <source src="https://cdn.coverr.co/videos/coverr-a-gamer-playing-fps-video-game-5464/1080p.mp4" type="video/mp4">
 </video>
 <div class="overlay"></div>
 
-<div class="card opacity-0" id="loginCard">
-  <h1 class="text-3xl font-extrabold mb-5 bg-gradient-to-r from-orange-400 via-red-500 to-blue-500 bg-clip-text text-transparent drop-shadow-lg">⚡ LOGIN TO ONEPLAY</h1>
-  <input id="email" type="email" placeholder="Enter your email" />
-  <input id="password" type="password" placeholder="Enter your password" />
-  <input id="referral" type="text" placeholder="Referral code (optional)" />
-  <button id="loginBtn" class="btn">Login</button>
-  <button id="googleBtn" class="google-btn">
-    <img src="https://www.svgrepo.com/show/355037/google.svg" alt="G">
-    Continue with Google
-  </button>
-  <p id="switchText" class="switch">New here? Click to Sign Up</p>
-  <p id="msg"></p>
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">⚡ ONEPLAY</div>
+  <div class="nav-links">
+    <button onclick="showPage('login')" class="active" id="nav-login">Login</button>
+    <button onclick="showPage('contact')" id="nav-contact">Contact</button>
+    <button onclick="showPage('terms')" id="nav-terms">Terms</button>
+    <button onclick="showPage('refund')" id="nav-refund">Refund Policy</button>
+  </div>
+</nav>
+
+<!-- ===================== LOGIN PAGE ===================== -->
+<div id="page-login" class="page active">
+  <div class="card" id="loginCard" style="opacity:0;">
+    <h1>⚡ LOGIN TO ONEPLAY</h1>
+
+    <div class="input-wrap">
+      <label>Email Address</label>
+      <input id="email" type="email" placeholder="you@example.com" />
+    </div>
+    <div class="input-wrap">
+      <label>Password</label>
+      <input id="password" type="password" placeholder="••••••••" />
+    </div>
+    <div class="input-wrap" id="referralWrap">
+      <label>Referral Code <span style="color:rgba(255,255,255,0.3)">(optional)</span></label>
+      <input id="referral" type="text" placeholder="Enter referral code" />
+    </div>
+
+    <button id="loginBtn" class="btn-main">LOGIN</button>
+
+    <div class="divider">or</div>
+
+    <button id="googleBtn" class="google-btn">
+      <img src="https://www.svgrepo.com/show/355037/google.svg" alt="G">
+      Continue with Google
+    </button>
+
+    <p class="switch-text">
+      <span id="switchText">New here? <span id="switchLink">Create Account</span></span>
+    </p>
+    <p id="msg"></p>
+
+    <div class="policy-footer">
+      <button onclick="showPage('contact')">Contact Us</button>
+      <button onclick="showPage('terms')">Terms &amp; Conditions</button>
+      <button onclick="showPage('refund')">Refunds &amp; Cancellations</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== CONTACT PAGE ===================== -->
+<div id="page-contact" class="page">
+  <div class="policy-page">
+    <div class="policy-hero">
+      <h1>📬 CONTACT US</h1>
+      <p>We're always online. Reach out anytime.</p>
+      <div class="accent-bar"></div>
+    </div>
+
+    <div class="section-card">
+      <h2>📧 Email Support</h2>
+      <p>For account, billing &amp; technical issues: <a href="mailto:support@oneplay.gg">support@oneplay.gg</a></p>
+      <p style="margin-top:8px;">For business &amp; partnerships: <a href="mailto:business@oneplay.gg">business@oneplay.gg</a></p>
+      <div class="highlight-box">
+        <strong>Support Hours:</strong> Monday – Saturday, 10:00 AM – 7:00 PM IST
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h2>📍 Registered Address</h2>
+      <p>
+        ONEPLAY Gaming Pvt. Ltd.<br>
+        Aurangabad, Maharashtra – 431001, India<br>
+        <strong style="color:#ffb300;">CIN:</strong> [Your CIN Here] &nbsp;|&nbsp;
+        <strong style="color:#ffb300;">GST:</strong> [Your GST Number Here]
+      </p>
+    </div>
+
+    <div class="section-card">
+      <h2>💬 Send Us a Message</h2>
+      <div class="form-grid">
+        <div class="fg">
+          <label>Your Name</label>
+          <input type="text" placeholder="e.g. Kartik Sharma" />
+        </div>
+        <div class="fg">
+          <label>Email Address</label>
+          <input type="email" placeholder="you@example.com" />
+        </div>
+        <div class="fg">
+          <label>Subject</label>
+          <select>
+            <option value="">Select a topic</option>
+            <option>Account Issue</option>
+            <option>Payment / Billing</option>
+            <option>Refund Request</option>
+            <option>Technical Support</option>
+            <option>Partnership / Business</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Transaction ID (if any)</label>
+          <input type="text" placeholder="Optional" />
+        </div>
+        <div class="fg full">
+          <label>Message</label>
+          <textarea rows="4" placeholder="Describe your query in detail..."></textarea>
+        </div>
+        <button class="form-submit">🚀 SEND MESSAGE</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== TERMS PAGE ===================== -->
+<div id="page-terms" class="page">
+  <div class="policy-page">
+    <div class="policy-hero">
+      <h1>📋 TERMS &amp; CONDITIONS</h1>
+      <p>Last updated: June 2024 &nbsp;|&nbsp; Please read carefully before using ONEPLAY.</p>
+      <div class="accent-bar"></div>
+    </div>
+
+    <div class="section-card">
+      <h2>1. Acceptance of Terms</h2>
+      <p>By accessing or using the ONEPLAY platform ("Service"), you agree to be bound by these Terms &amp; Conditions. If you do not agree, please discontinue use immediately. ONEPLAY reserves the right to update these terms at any time without prior notice.</p>
+    </div>
+
+    <div class="section-card">
+      <h2>2. Eligibility</h2>
+      <ul>
+        <li>You must be at least 18 years of age (or 13+ with parental consent) to use ONEPLAY.</li>
+        <li>By registering, you confirm that all information provided is accurate and current.</li>
+        <li>Accounts may not be transferred or sold to other individuals.</li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h2>3. User Account</h2>
+      <ul>
+        <li>You are responsible for maintaining the confidentiality of your login credentials.</li>
+        <li>ONEPLAY is not liable for any loss or damage arising from unauthorized account access.</li>
+        <li>You agree not to use another user's account at any time.</li>
+        <li>Accounts found violating these terms may be suspended or permanently banned without notice.</li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h2>4. Products &amp; Services</h2>
+      <p>ONEPLAY offers the following digital gaming products and services, all priced in Indian Rupees (INR):</p>
+      <div class="products-grid" style="margin-top:16px;">
+        <div class="product-item">
+          <div class="icon">🎮</div>
+          <h3>Pro Pass</h3>
+          <div class="price">₹299 / month</div>
+          <div class="desc">Unlimited tournament entries + rewards</div>
+        </div>
+        <div class="product-item">
+          <div class="icon">⚡</div>
+          <h3>Elite Pass</h3>
+          <div class="price">₹699 / month</div>
+          <div class="desc">All Pro features + exclusive cosmetics</div>
+        </div>
+        <div class="product-item">
+          <div class="icon">🏆</div>
+          <h3>Tournament Entry</h3>
+          <div class="price">₹49 – ₹499</div>
+          <div class="desc">Per-tournament registration fee</div>
+        </div>
+        <div class="product-item">
+          <div class="icon">💎</div>
+          <h3>OP Coins</h3>
+          <div class="price">₹100 = 100 coins</div>
+          <div class="desc">In-app currency for rewards &amp; upgrades</div>
+        </div>
+      </div>
+      <div class="highlight-box" style="margin-top:18px;">
+        All prices are inclusive of applicable taxes and displayed in <strong>INR (₹)</strong>. Prices are subject to change with prior notice.
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h2>5. Payments</h2>
+      <ul>
+        <li>All transactions on ONEPLAY are processed securely via Cashfree Payments.</li>
+        <li>We accept UPI, Net Banking, Credit/Debit Cards, and Wallets.</li>
+        <li>Subscription charges are billed at the start of each billing cycle.</li>
+        <li>Failed transactions will not result in service activation.</li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h2>6. Prohibited Activities</h2>
+      <ul>
+        <li>Using bots, scripts, or any automated tools to gain unfair advantage.</li>
+        <li>Harassment, abuse, or threats toward other users or ONEPLAY staff.</li>
+        <li>Exploiting bugs or glitches — must be reported to support@oneplay.gg.</li>
+        <li>Any activity that violates Indian law or international regulations.</li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h2>7. Intellectual Property</h2>
+      <p>All content on ONEPLAY — including logos, game assets, UI elements, and branding — is the exclusive property of ONEPLAY Gaming Pvt. Ltd. Unauthorized reproduction or distribution is strictly prohibited.</p>
+    </div>
+
+    <div class="section-card">
+      <h2>8. Governing Law</h2>
+      <p>These Terms are governed by and construed in accordance with the laws of India. Any disputes shall be subject to the exclusive jurisdiction of the courts in Aurangabad, Maharashtra.</p>
+    </div>
+
+    <div class="section-card">
+      <h2>9. Contact for Legal Queries</h2>
+      <p>For any legal inquiries, write to: <a href="mailto:legal@oneplay.gg">legal@oneplay.gg</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== REFUND PAGE ===================== -->
+<div id="page-refund" class="page">
+  <div class="policy-page">
+    <div class="policy-hero">
+      <h1>💸 REFUNDS &amp; CANCELLATIONS</h1>
+      <p>Last updated: June 2024 &nbsp;|&nbsp; Our commitment to fair refund practices.</p>
+      <div class="accent-bar"></div>
+    </div>
+
+    <div class="section-card">
+      <h2>1. Subscription Cancellations</h2>
+      <ul>
+        <li>You may cancel your ONEPLAY subscription at any time from your account dashboard.</li>
+        <li>Cancellation takes effect at the end of the current billing cycle.</li>
+        <li>No partial refunds are provided for unused days within an active billing period.</li>
+        <li>Access to premium features continues until the end of the paid period.</li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h2>2. Tournament Entry Fees</h2>
+      <ul>
+        <li>Tournament entry fees are <strong style="color:#ff4444;">non-refundable</strong> once the tournament has started.</li>
+        <li>If a tournament is cancelled by ONEPLAY, a full refund will be processed within <strong style="color:#ffb300;">5–7 working days</strong>.</li>
+        <li>If a tournament is postponed, you may request a refund or transfer your entry to the rescheduled event.</li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h2>3. OP Coins (In-App Currency)</h2>
+      <ul>
+        <li>OP Coins are non-refundable once purchased.</li>
+        <li>Unused OP Coins will remain in your account as long as it is active.</li>
+        <li>OP Coins have no monetary value outside the ONEPLAY platform and cannot be exchanged for cash.</li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h2>4. Eligible Refund Cases</h2>
+      <p>Refunds will be considered in the following cases:</p>
+      <ul>
+        <li>Duplicate payment for the same transaction.</li>
+        <li>Payment deducted but service not activated (technical failure).</li>
+        <li>Unauthorized transaction — must be reported within <strong style="color:#ffb300;">48 hours</strong>.</li>
+      </ul>
+      <div class="highlight-box">
+        To raise a refund request, email <a href="mailto:support@oneplay.gg">support@oneplay.gg</a> with your <strong>Transaction ID</strong>, <strong>registered email</strong>, and <strong>reason for refund</strong>.
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h2>5. Refund Processing Time</h2>
+      <ul>
+        <li>Approved refunds are processed within <strong style="color:#ffb300;">5–7 business days</strong>.</li>
+        <li>Refunds are credited to the original payment method used during purchase.</li>
+        <li>UPI &amp; Wallet refunds may reflect faster than card/bank refunds depending on your bank.</li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h2>6. Non-Refundable Items</h2>
+      <ul>
+        <li>Cosmetic items and in-game skins once applied to an account.</li>
+        <li>OP Coins once purchased.</li>
+        <li>Tournament fees after the event has commenced.</li>
+        <li>Subscriptions mid-cycle (no pro-rata refund).</li>
+      </ul>
+    </div>
+
+    <div class="section-card">
+      <h2>7. Dispute Resolution</h2>
+      <p>If you are not satisfied with our refund decision, you may escalate to <a href="mailto:grievance@oneplay.gg">grievance@oneplay.gg</a>. We aim to resolve all grievances within <strong style="color:#ffb300;">14 business days</strong>.</p>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="site-footer">
+  &copy; 2024 ONEPLAY Gaming Pvt. Ltd. All rights reserved. &nbsp;|&nbsp;
+  <a href="#" onclick="showPage('contact')">Contact Us</a>
+  <a href="#" onclick="showPage('terms')">Terms &amp; Conditions</a>
+  <a href="#" onclick="showPage('refund')">Refunds &amp; Cancellations</a>
 </div>
 
 <script>
-setTimeout(()=>document.getElementById("loginCard").classList.remove("opacity-0"),4700);
+// ===== PAGE SWITCHER =====
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-links button').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const nb = document.getElementById('nav-' + name);
+  if (nb) nb.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Show login card after intro
+setTimeout(() => {
+  const card = document.getElementById('loginCard');
+  if (card) card.style.opacity = '1';
+}, 4500);
+
+// Login page flex display fix
+const loginPage = document.getElementById('page-login');
+loginPage.style.display = 'flex';
+
+// ===== FIREBASE =====
 </script>
 
 <script type="module">
@@ -244,65 +781,69 @@ const firebaseConfig = {
   appId: "1:807884655015:web:7cfcd71323b17afa40ce82",
   measurementId: "G-KL3RK8TZ87"
 };
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-const email = document.getElementById("email");
-const pass = document.getElementById("password");
-const ref = document.getElementById("referral");
-const loginBtn = document.getElementById("loginBtn");
+const emailEl   = document.getElementById("email");
+const passEl    = document.getElementById("password");
+const refEl     = document.getElementById("referral");
+const loginBtn  = document.getElementById("loginBtn");
 const googleBtn = document.getElementById("googleBtn");
-const msg = document.getElementById("msg");
-const switchText = document.getElementById("switchText");
-const ADMIN_EMAIL_CHECK = "admin@oneplay.com"; // Email to check for admin redirect
+const msg       = document.getElementById("msg");
+const switchLink = document.getElementById("switchLink");
+const ADMIN_EMAIL = "admin@oneplay.com";
 
 let isSignup = false;
-switchText.onclick = () => {
+
+switchLink.onclick = () => {
   isSignup = !isSignup;
-  switchText.textContent = isSignup ? "Already have an account? Login" : "New here? Click to Sign Up";
-  loginBtn.textContent = isSignup ? "Sign Up" : "Login"; // UX improvement
+  switchLink.textContent     = isSignup ? "Back to Login" : "Create Account";
+  loginBtn.textContent       = isSignup ? "SIGN UP" : "LOGIN";
+  document.getElementById("referralWrap").style.display = isSignup ? "block" : "none";
   msg.textContent = "";
 };
-const showMsg = (t, c="#ffb300") => { msg.textContent=t; msg.style.color=c; };
 
-const redirectUser = (userEmail) => {
-    if (userEmail === ADMIN_EMAIL_CHECK) {
-        window.location.href = "admin.html";
-    } else {
-        window.location.href = "dashboard.html";
-    }
-}
+// Hide referral on load
+document.getElementById("referralWrap").style.display = "none";
+
+const showMsg = (t, c = "#ffb300") => { msg.textContent = t; msg.style.color = c; };
+
+const redirectUser = (email) => {
+  window.location.href = email === ADMIN_EMAIL ? "admin.html" : "dashboard.html";
+};
 
 loginBtn.onclick = async () => {
-  const emailVal=email.value.trim(), passVal=pass.value.trim(), refVal=ref.value.trim();
-  if(!emailVal||!passVal) return showMsg("⚠️ Fill all fields","red");
-  try{
-    let userCred;
-    if(isSignup){
-      userCred=await createUserWithEmailAndPassword(auth,emailVal,passVal);
-      if(refVal) await setDoc(doc(db,"referrals",userCred.user.uid),{referredBy:refVal,email:emailVal,joinedAt:new Date()});
-      showMsg("🎉 Account created! Redirecting...");
+  const ev = emailEl.value.trim(), pv = passEl.value.trim(), rv = refEl.value.trim();
+  if (!ev || !pv) return showMsg("⚠️ Please fill email and password", "red");
+  try {
+    let cred;
+    if (isSignup) {
+      cred = await createUserWithEmailAndPassword(auth, ev, pv);
+      if (rv) await setDoc(doc(db, "referrals", cred.user.uid), { referredBy: rv, email: ev, joinedAt: new Date() });
+      showMsg("🎉 Account created! Redirecting...", "#00ff88");
     } else {
-      userCred=await signInWithEmailAndPassword(auth,emailVal,passVal);
-      showMsg("✅ Login successful!");
+      cred = await signInWithEmailAndPassword(auth, ev, pv);
+      showMsg("✅ Login successful!", "#00ff88");
     }
-    setTimeout(()=>redirectUser(userCred.user.email),1200); // Check and redirect
-  }catch(err){showMsg("❌ "+err.message,"red");}
+    setTimeout(() => redirectUser(cred.user.email), 1200);
+  } catch (err) { showMsg("❌ " + err.message, "red"); }
 };
 
 googleBtn.onclick = async () => {
-  try{
-    const res=await signInWithPopup(auth,provider);
-    showMsg("✅ Welcome "+res.user.displayName);
-    setTimeout(()=>redirectUser(res.user.email),1000); // Check and redirect
-  }catch(err){showMsg("❌ "+err.message,"red");}
+  try {
+    const res = await signInWithPopup(auth, provider);
+    showMsg("✅ Welcome " + res.user.displayName, "#00ff88");
+    setTimeout(() => redirectUser(res.user.email), 1000);
+  } catch (err) { showMsg("❌ " + err.message, "red"); }
 };
 
-onAuthStateChanged(auth,u=>{if(u)redirectUser(u.email);});
+onAuthStateChanged(auth, u => { if (u) redirectUser(u.email); });
 </script>
 
+<!-- Popunder Ad -->
 <script type="text/javascript">
 document.addEventListener("DOMContentLoaded", function () {
   document.addEventListener("click", function showOnePlayAd() {
@@ -312,12 +853,10 @@ document.addEventListener("DOMContentLoaded", function () {
       adScript.type = "text/javascript";
       adScript.src = "https://www.effectivegatecpm.com/kf6ffkg1e?key=1cacaabaf775748c1358789582c52f62";
       document.body.appendChild(adScript);
-      console.log("✅ Popunder script injected");
     }
   }, { once: true });
 });
 </script>
-
 
 </body>
 </html>
