@@ -87,11 +87,23 @@ exports.createOrder = async (req, res) => {
       payment_session_id: response.data.payment_session_id
     });
 
-  } catch (err) {
-    const cfError = err.response?.data;
-    const errorMessage = cfError?.message || cfError?.type || err.message || "Failed to process payment with Cashfree.";
-    console.error("❌ Cashfree Error:", JSON.stringify(cfError || err.message));
-    return res.status(500).json({ success: false, message: errorMessage });
+  }catch (err) {
+
+  console.error("============== ERROR ==============");
+  console.error(err);
+  console.error("MESSAGE:", err.message);
+  console.error("STACK:", err.stack);
+
+  if (err.response) {
+    console.error("RESPONSE DATA:", err.response.data);
+  }
+
+  console.error("===================================");
+
+  return res.status(500).json({
+    success: false,
+    message: err.message
+  });
   }
 };
 
