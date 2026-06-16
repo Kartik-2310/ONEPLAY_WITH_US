@@ -1,9 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const { approveWithdraw, rejectWithdraw, getPendingWithdrawals } = require("../controllers/adminController");
- 
-router.get("/admin/pending-withdrawals", getPendingWithdrawals);
-router.post("/admin/withdrawals/:id/approve", approveWithdraw);
-router.post("/admin/reject-withdrawal", rejectWithdraw);
- 
+
+const {
+  createOrder,
+  webhook
+} = require("../controllers/paymentController");
+
+router.post("/create-order", createOrder);
+
+router.post("/cashfree/webhook", webhook);
+
 module.exports = router;
